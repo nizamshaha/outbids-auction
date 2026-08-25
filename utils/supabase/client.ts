@@ -1,20 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
+const getSupabaseUrl = () =>
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://placeholder.supabase.co';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  if (typeof window !== 'undefined') {
-    console.warn('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.');
-  }
-}
+const getSupabaseAnonKey = () =>
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  'placeholder-anon-key';
 
 /**
  * Supabase client for browser-side usage (realtime subscriptions, public reads)
  */
 export const createBrowserClient = () => {
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const url = getSupabaseUrl();
+  const anonKey = getSupabaseAnonKey();
+
+  return createClient<Database>(url, anonKey, {
     realtime: {
       params: {
         eventsPerSecond: 10,

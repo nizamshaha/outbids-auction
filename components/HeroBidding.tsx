@@ -258,8 +258,7 @@ export function HeroBidding({
                 </>
               ) : (
                 <>
-                  <span>Outbid</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Outbid ⚡</span>
                 </>
               )}
             </button>

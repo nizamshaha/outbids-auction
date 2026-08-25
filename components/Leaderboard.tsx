@@ -3,20 +3,23 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Bid } from '@/types/bid';
 import { supabase } from '@/utils/supabase/client';
-import { LeaderboardItem } from './LeaderboardItem';
-import { Trophy, Flame, RefreshCw } from 'lucide-react';
+import { TopPodium } from './TopPodium';
+import { RankingsTable } from './RankingsTable';
+import { Flame, RefreshCw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface LeaderboardProps {
   initialBids?: Bid[];
   onStatsUpdate?: (stats: { count: number; highest: number; totalVolume: number }) => void;
   onConnectionChange?: (connected: boolean) => void;
+  onSelectBidAmount?: (amountDollars: number) => void;
 }
 
 export function Leaderboard({
   initialBids = [],
   onStatsUpdate,
   onConnectionChange,
+  onSelectBidAmount,
 }: LeaderboardProps) {
   const [bids, setBids] = useState<Bid[]>(initialBids);
   const [loading, setLoading] = useState(initialBids.length === 0);
@@ -86,9 +89,6 @@ export function Leaderboard({
 
   // Subscribe to Supabase Realtime postgres_changes
   useEffect(() => {
-    console.log('[Supabase Realtime] Initializing subscription to public:bids channel...');
-    
-    // 1. Create channel
     const channel = supabase
       .channel('public:bids')
       .on(
@@ -111,13 +111,12 @@ export function Leaderboard({
               if (insertedBid.status === 'paid') {
                 if (!updatedList.some((b) => b.id === insertedBid.id)) {
                   updatedList.push(insertedBid);
-                  // Fire confetti if new #1
                   const currentTop = updatedList[0]?.amount || 0;
                   if (insertedBid.amount >= currentTop) {
                     try {
                       confetti({
-                        particleCount: 80,
-                        spread: 60,
+                        particleCount: 90,
+                        spread: 70,
                         origin: { y: 0.6 },
                       });
                     } catch {}
@@ -138,7 +137,7 @@ export function Leaderboard({
                     try {
                       confetti({
                         particleCount: 100,
-                        spread: 70,
+                        spread: 80,
                         origin: { y: 0.5 },
                       });
                     } catch {}
@@ -160,8 +159,7 @@ export function Leaderboard({
           });
         }
       )
-      .subscribe((status, err) => {
-        console.log('[Supabase Realtime Status]:', status, err || '');
+      .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           if (onConnectionChangeRef.current) {
             onConnectionChangeRef.current(true);
@@ -177,52 +175,24 @@ export function Leaderboard({
         }
       });
 
-    // 2. CRITICAL Cleanup: Unsubscribe & remove channel on unmount to prevent React Strict Mode duplicate WebSocket loops
     return () => {
-      console.log('[Supabase Realtime] Cleaning up channel...');
       supabase.removeChannel(channel);
     };
   }, [sortBids, emitStats]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto mt-10">
-      {/* Header section of leaderboard */}
-      <div className="flex items-center justify-between mb-4 px-2">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-amber-400" />
-          <h3 className="text-lg sm:text-xl font-black tracking-tight text-white uppercase">
-            Live Rankings
-          </h3>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 font-semibold">
-            {bids.length}
-          </span>
-        </div>
-
-        <button
-          onClick={fetchPaidBids}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/60 transition-colors"
-          title="Refresh rankings"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </div>
-
+    <div className="w-full">
       {/* Loading state */}
       {loading && bids.length === 0 && (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
           {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="h-20 rounded-2xl glass-card animate-pulse flex items-center justify-between p-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gray-800" />
-                <div className="space-y-2">
-                  <div className="w-32 h-4 bg-gray-800 rounded" />
-                  <div className="w-20 h-3 bg-gray-800/60 rounded" />
-                </div>
+            <div key={n} className="h-44 rounded-2xl glass-card animate-pulse p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-gray-800" />
+                <div className="w-16 h-6 rounded-lg bg-gray-800" />
               </div>
-              <div className="w-16 h-8 bg-gray-800 rounded-xl" />
+              <div className="w-32 h-5 bg-gray-800 rounded" />
+              <div className="w-24 h-3 bg-gray-800/60 rounded" />
             </div>
           ))}
         </div>
@@ -230,36 +200,36 @@ export function Leaderboard({
 
       {/* Error state */}
       {error && (
-        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-center text-sm text-red-300">
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-center text-sm text-red-300 my-4">
           <p>{error}</p>
           <button
             onClick={fetchPaidBids}
-            className="mt-2 text-xs font-semibold text-red-400 hover:underline"
+            className="mt-2 text-xs font-semibold text-red-400 hover:underline inline-flex items-center gap-1"
           >
-            Try reloading
+            <RefreshCw className="w-3 h-3" />
+            <span>Try reloading</span>
           </button>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && bids.length === 0 && !error && (
-        <div className="glass-panel rounded-3xl p-10 text-center border-dashed border-gray-800">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-3">
+        <div className="glass-panel rounded-3xl p-8 sm:p-12 text-center border-dashed border-gray-800 my-8">
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto mb-3">
             <Flame className="w-6 h-6" />
           </div>
-          <h4 className="text-base font-bold text-gray-200">No Bids Yet!</h4>
+          <h3 className="text-lg font-black text-white">Billboard Is Empty!</h3>
           <p className="text-xs sm:text-sm text-gray-400 mt-1 max-w-sm mx-auto">
-            Be the very first website to claim the <strong className="text-amber-400">#1 position</strong> on the leaderboard for just $5.00.
+            Be the very first website to claim the <strong className="text-orange-400">#1 position</strong> for just $5.00.
           </p>
         </div>
       )}
 
-      {/* Leaderboard list */}
-      <div className="space-y-3">
-        {bids.map((bid, index) => (
-          <LeaderboardItem key={bid.id} bid={bid} rank={index + 1} />
-        ))}
-      </div>
+      {/* Top 3 Podium Cards */}
+      <TopPodium topBids={bids.slice(0, 3)} onSelectBidAmount={onSelectBidAmount} />
+
+      {/* Dense Live Rankings Table for #4+ */}
+      <RankingsTable bids={bids} />
     </div>
   );
 }

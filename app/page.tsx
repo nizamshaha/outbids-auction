@@ -24,7 +24,7 @@ function MainContent() {
   });
 
   const [notification, setNotification] = useState<{
-    type: 'success' | 'canceled';
+    type: 'success' | 'failed' | 'canceled';
     message: string;
   } | null>(null);
 
@@ -57,8 +57,26 @@ function MainContent() {
   }, []);
 
   useEffect(() => {
-    const isSuccess = searchParams.get('success') === 'true';
-    const isCanceled = searchParams.get('canceled') === 'true';
+    const statusParam = searchParams.get('status')?.toLowerCase();
+    const successParam = searchParams.get('success')?.toLowerCase();
+    const canceledParam =
+      searchParams.get('canceled')?.toLowerCase() || searchParams.get('cancelled')?.toLowerCase();
+
+    // Check if the payment failed or was cancelled
+    const isFailed =
+      statusParam === 'failed' ||
+      statusParam === 'cancelled' ||
+      statusParam === 'canceled' ||
+      canceledParam === 'true' ||
+      successParam === 'false';
+
+    // Success only if success=true OR status=succeeded AND definitely NOT failed
+    const isSuccess =
+      (successParam === 'true' ||
+        statusParam === 'succeeded' ||
+        statusParam === 'success' ||
+        statusParam === 'completed') &&
+      !isFailed;
 
     if (isSuccess) {
       setNotification({
@@ -72,10 +90,10 @@ function MainContent() {
           origin: { y: 0.6 },
         });
       } catch {}
-    } else if (isCanceled) {
+    } else if (isFailed) {
       setNotification({
-        type: 'canceled',
-        message: 'Checkout was canceled. No charges were made.',
+        type: 'failed',
+        message: 'Payment could not be completed. Please try again.',
       });
     }
   }, [searchParams]);
@@ -96,13 +114,13 @@ function MainContent() {
           className={`w-full py-3 px-4 text-center text-sm font-semibold flex items-center justify-center gap-2 border-b animate-in slide-in-from-top duration-300 ${
             notification.type === 'success'
               ? 'bg-surface-container-highest text-emerald-800 border-emerald-500/40'
-              : 'bg-surface-container-highest text-amber-900 border-amber-500/40'
+              : 'bg-error-container text-error border-error/30'
           }`}
         >
           {notification.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           ) : (
-            <XCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <XCircle className="w-4 h-4 text-error shrink-0" />
           )}
           <span>{notification.message}</span>
           <button

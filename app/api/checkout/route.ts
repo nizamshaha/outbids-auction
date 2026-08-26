@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
           amount: chargeAmountCents,
         },
       ],
-      return_url: `${siteUrl}/?success=true`,
+      return_url: `${siteUrl}/`,
       metadata: {
         url: normalizedUrl,
         category: category || 'Other',

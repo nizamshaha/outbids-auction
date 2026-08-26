@@ -7,6 +7,53 @@ import { scrapeUrlMetadata } from '@/utils/metadata';
 
 const MINIMUM_PAID_BID_CENTS = 500; // Minimum $5.00 for paid bids
 
+async function insertBidSafely(dbClient: any, payload: {
+  url: string;
+  amount: number;
+  status: string;
+  category: string;
+  title: string | null;
+  description: string | null;
+  icon_url: string | null;
+}) {
+  // First attempt: insert with all rich schema columns
+  const firstAttempt = await dbClient
+    .from('bids')
+    .insert({
+      url: payload.url,
+      amount: payload.amount,
+      status: payload.status,
+      category: payload.category,
+      title: payload.title,
+      description: payload.description,
+      icon_url: payload.icon_url,
+      click_count: 0,
+      view_count: 0,
+    })
+    .select('id')
+    .single();
+
+  if (!firstAttempt.error && firstAttempt.data) {
+    return { data: firstAttempt.data, error: null };
+  }
+
+  // Fallback: If category or rich columns are not in schema cache, insert core columns
+  console.warn('[Supabase Insert Fallback] Retrying with core schema columns:', firstAttempt.error?.message);
+  const fallbackAttempt = await dbClient
+    .from('bids')
+    .insert({
+      url: payload.url,
+      amount: payload.amount,
+      status: payload.status,
+      title: payload.title,
+      description: payload.description,
+    })
+    .select('id')
+    .single();
+
+  return fallbackAttempt;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -70,21 +117,15 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { data: freeBid, error: freeError } = await dbClient
-        .from('bids')
-        .insert({
-          url: normalizedUrl,
-          amount: 0,
-          status: 'paid',
-          category: selectedCategory,
-          title: finalTitle,
-          description: finalDescription,
-          icon_url: finalIconUrl,
-          click_count: 0,
-          view_count: 0,
-        })
-        .select('id')
-        .single();
+      const { data: freeBid, error: freeError } = await insertBidSafely(dbClient, {
+        url: normalizedUrl,
+        amount: 0,
+        status: 'paid',
+        category: selectedCategory,
+        title: finalTitle,
+        description: finalDescription,
+        icon_url: finalIconUrl,
+      });
 
       if (freeError || !freeBid) {
         console.error('Error inserting free bid into Supabase:', freeError);
@@ -144,22 +185,16 @@ export async function POST(req: NextRequest) {
       console.log(`[Top-Up Detected] Upgrading ${normalizedUrl} from $${currentPaid / 100} to $${amountCents / 100}. Charging difference: $${chargeAmountCents / 100}`);
     }
 
-    // Insert pending bid record
-    const { data: newBid, error: dbError } = await dbClient
-      .from('bids')
-      .insert({
-        url: normalizedUrl,
-        amount: amountCents, // Total target rank amount
-        status: 'pending',
-        category: selectedCategory,
-        title: finalTitle,
-        description: finalDescription,
-        icon_url: finalIconUrl,
-        click_count: 0,
-        view_count: 0,
-      })
-      .select('id')
-      .single();
+    // Insert pending bid record safely
+    const { data: newBid, error: dbError } = await insertBidSafely(dbClient, {
+      url: normalizedUrl,
+      amount: amountCents, // Total target rank amount
+      status: 'pending',
+      category: selectedCategory,
+      title: finalTitle,
+      description: finalDescription,
+      icon_url: finalIconUrl,
+    });
 
     if (dbError || !newBid) {
       console.error('Error inserting pending bid into Supabase:', dbError);

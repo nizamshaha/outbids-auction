@@ -17,7 +17,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-2 text-gray-400 pt-1">
               <Lock className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Payments securely processed by <strong>Dodo Payments</strong> (Merchant of Record).</span>
+              <span>Payments securely processed via <strong>PayPal</strong>.</span>
             </div>
           </div>
 

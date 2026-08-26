@@ -1,8 +1,9 @@
 import React from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Terms of Service | Outbids.auction',
@@ -16,7 +17,7 @@ export default function TermsPage() {
 
       <main className="container mx-auto px-4 py-12 max-w-4xl flex-1">
         <div className="mb-8 pb-6 border-b border-gray-800">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20 mb-3">
             <FileText className="w-3.5 h-3.5" />
             Legal Agreement
           </div>
@@ -55,24 +56,32 @@ export default function TermsPage() {
               <li>Does not infringe upon third-party intellectual property or copyright laws.</li>
             </ul>
             <p className="text-gray-400">
-              We reserve the right to review and remove any URL violating these guidelines without liability.
+              We reserve the right to review and remove any URL violating these guidelines without notice or liability.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">4. Payment Processing & Merchant of Record</h2>
-            <p>
-              Our order process is conducted by our online reseller and Merchant of Record, <strong>Dodo Payments</strong>. Dodo Payments handles all customer service inquiries, billing compliance, invoicing, and applicable regional sales tax collections.
-            </p>
-            <p>
-              By completing a transaction, you authorize Dodo Payments to charge your selected payment method for the bid amount specified.
-            </p>
+            <h2 className="text-lg font-bold text-white">4. Payments, Bids, and Pricing</h2>
+            <ul className="list-disc list-inside space-y-2 text-gray-300 pl-2">
+              <li>
+                <strong>Payment Processing:</strong> All payments on Outbids.auction are securely processed via <strong>PayPal</strong>. By placing a bid, you authorize PayPal to charge your selected payment method for the designated bid amount in USD ($).
+              </li>
+              <li>
+                <strong>Immediate Digital Delivery:</strong> Bids represent digital placements on our real-time leaderboard. Service delivery occurs immediately upon successful payment confirmation from PayPal.
+              </li>
+              <li>
+                <strong>Non-Refundable Nature:</strong> Due to the real-time, competitive digital billboard format where placements are allocated and broadcasted instantly upon payment confirmation, all completed bids are final and non-refundable once published.
+              </li>
+              <li>
+                <strong>Pricing & Currency:</strong> All bids and placement costs are denominated and charged in US Dollars (USD). You are responsible for any foreign transaction or currency conversion fees charged by PayPal or your card issuer.
+              </li>
+            </ul>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-white">5. Finality of Bids & No Refunds</h2>
             <p>
-              Due to the immediate digital fulfillment and instantaneous broadcast of your link onto the live leaderboard, <strong>all purchases and bids are final and non-refundable once payment is completed</strong>. Please see our full <a href="/refund" className="text-indigo-400 hover:underline">Refund Policy</a> for complete details.
+              Due to the immediate digital fulfillment and instantaneous broadcast of your link onto the live leaderboard, <strong>all purchases and bids are final and non-refundable once payment is completed</strong>. Please see our full <Link href="/refund-policy" className="text-orange-400 hover:underline">Refund Policy</Link> for complete details.
             </p>
           </section>
 
@@ -88,7 +97,7 @@ export default function TermsPage() {
             <p>
               For legal inquiries or questions regarding these Terms, contact us at:
               <br />
-              <a href="mailto:support@outbids.auction" className="text-indigo-400 hover:underline font-medium">
+              <a href="mailto:support@outbids.auction" className="text-orange-400 hover:underline font-medium">
                 support@outbids.auction
               </a>
             </p>

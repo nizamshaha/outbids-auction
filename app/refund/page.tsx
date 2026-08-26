@@ -1,11 +1,11 @@
 import React from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { AlertTriangle, RefreshCcw, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, RefreshCcw } from 'lucide-react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund & Cancellation Policy | Outbids.auction',
+  title: 'Refund Policy | Outbids.auction',
   description: 'Refund, dispute, and cancellation policy for Outbids.auction.',
 };
 
@@ -20,7 +20,7 @@ export default function RefundPage() {
             <RefreshCcw className="w-3.5 h-3.5" />
             Billing Disclosure
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Refund & Cancellation Policy</h1>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Refund Policy</h1>
           <p className="text-sm text-gray-400 mt-2">Last Updated: August 2026</p>
         </div>
 
@@ -32,47 +32,48 @@ export default function RefundPage() {
               <div>
                 <h3 className="font-bold text-base text-amber-300">Important Notice Regarding Real-Time Leaderboard Placements</h3>
                 <p className="text-xs sm:text-sm text-amber-200/90 mt-1">
-                  Due to the immediate digital fulfillment and instantaneous live broadcast of leaderboard placements, all completed bids and purchases on <strong>Outbids.auction</strong> are <strong>final and non-refundable</strong> once payment has been verified.
+                  Thank you for participating on <strong>Outbids.auction</strong>. Due to the immediate digital fulfillment and instantaneous live broadcast of leaderboard placements, all completed bids are strictly final and non-refundable once payment is captured.
                 </p>
               </div>
             </div>
           </div>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">1. Nature of Digital Service</h2>
+            <h2 className="text-lg font-bold text-white">1. Digital Advertising Service Nature</h2>
             <p>
-              When you submit a bid on Outbids.auction, fulfillment occurs immediately: your URL is written to our production database and broadcasted in real-time to all connected visitors across the globe via WebSockets. Because this digital service is consumed instantaneously upon payment confirmation, standard cooling-off periods and discretionary refunds do not apply.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">2. Dynamic Ranking Mechanism</h2>
-            <p>
-              Leaderboard rankings are determined dynamically based on the highest active bid amounts. Submitting a bid guarantees placement on the leaderboard corresponding to your bid amount at the moment of verification.
-            </p>
-            <p>
-              However, you understand that other participants may submit higher bids at any subsequent time, which will naturally adjust your rank. <strong>Changes in ranking position due to subsequent user bids do not qualify for a refund.</strong>
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">3. Technical Errors & Duplicate Charges</h2>
-            <p>
-              In the rare event of a verified technical error (e.g. duplicate credit card charges caused by network latency, or a paid transaction that failed to register on the leaderboard due to a server failure), we will issue a full refund or manually adjust your placement.
-            </p>
-            <p>
-              To request an investigation for a technical issue:
+              Outbids.auction provides immediate, dynamic digital billboard placements. When your payment is confirmed by <strong>PayPal</strong>:
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
-              <li>Email us within 7 days of the transaction at <a href="mailto:support@outbids.auction" className="text-indigo-400 hover:underline">support@outbids.auction</a>.</li>
-              <li>Include your transaction reference ID, payment receipt, and submitted website URL.</li>
+              <li>Your bid is processed in real time.</li>
+              <li>Your submitted link and ranking are instantly broadcasted on the live leaderboard.</li>
             </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">4. Merchant of Record Inquiries</h2>
+            <h2 className="text-lg font-bold text-white">2. No Refunds on Active Bids</h2>
             <p>
-              Payments and invoicing are handled by <strong>Dodo Payments</strong>. If you have questions regarding your billing receipt, invoice, or regional sales tax, you may contact Dodo Payments support or our team at <a href="mailto:support@outbids.auction" className="text-indigo-400 hover:underline">support@outbids.auction</a>.
+              Because placement occurs immediately upon payment capture, <strong>all successful bid payments are strictly non-refundable</strong>.
+            </p>
+            <p>
+              If another participant subsequently places a higher bid and overtakes your position (e.g., knocking your URL down from #1 to #2 or off the podium), this is part of the core competitive dynamic of the platform and does not entitle you to a refund.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-white">3. Billing Inquiries & Payment Errors</h2>
+            <p>
+              If you experience a technical failure where:
+            </p>
+            <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
+              <li>Your payment was captured and confirmed by PayPal, but</li>
+              <li>Your link failed to appear on the leaderboard due to a system error,</li>
+            </ul>
+            <p>
+              Please contact support immediately at{' '}
+              <a href="mailto:support@outbids.auction" className="text-orange-400 font-semibold hover:underline">
+                support@outbids.auction
+              </a>{' '}
+              with your <strong>PayPal Transaction ID</strong> and submitted target URL. We will investigate the transaction logs and manually restore your placement or issue a resolution.
             </p>
           </section>
         </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { Lock, Shield, Eye } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -33,37 +33,52 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
               <li><strong>Submitted Website URL</strong>: The public website link you submit to be showcased on the leaderboard.</li>
               <li><strong>Bid Amount</strong>: The monetary amount chosen for the leaderboard placement.</li>
-              <li><strong>Transaction Metadata</strong>: Billing email and order reference IDs generated upon checkout.</li>
+              <li><strong>Transaction Identifiers</strong>: Unique order references generated upon checkout to reconcile payment confirmation.</li>
             </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">2. Payment Data & Security</h2>
-            <p>
-              We do <strong>not</strong> collect, process, or store your credit card numbers, bank accounts, or sensitive financial information on our servers.
-            </p>
-            <p>
-              All payment transactions are processed directly by our Merchant of Record, <strong>Dodo Payments</strong>, in compliance with PCI-DSS standards and global banking encryption protocols.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">3. How We Use Your Information</h2>
+            <h2 className="text-lg font-bold text-white">2. How We Use Your Information</h2>
             <p>We use the collected information exclusively to:</p>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
               <li>Display and rank your submitted website URL on the public leaderboard.</li>
               <li>Broadcast real-time position updates to connected website visitors via Supabase WebSockets.</li>
-              <li>Facilitate customer service, billing inquiries, and fraud prevention.</li>
+              <li>Facilitate customer service, billing verification, and technical support.</li>
             </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-white">4. Third-Party Service Providers</h2>
-            <p>We partner with trusted third-party providers:</p>
+            <h2 className="text-lg font-bold text-white">3. Third-Party Payment Processors</h2>
+            <p>
+              We do not store, process, or have access to your full credit card numbers, bank account information, or financial credentials on our servers.
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-gray-300 pl-2">
+              <li>
+                <strong>PayPal Integration:</strong> When you submit a bid, your transaction is processed directly through <strong>PayPal</strong>.
+              </li>
+              <li>
+                <strong>Data Transferred:</strong> We only transmit the transaction amount, bid identifier, and associated URL metadata to PayPal to generate and confirm the transaction.
+              </li>
+              <li>
+                <strong>PayPal Privacy Governance:</strong> Your financial information and payment details are collected and handled directly by PayPal under the{' '}
+                <a
+                  href="https://www.paypal.com/webapps/mpp/ua/privacy-full"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 underline hover:text-emerald-300"
+                >
+                  PayPal Privacy Statement
+                </a>.
+              </li>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-white">4. Cloud Infrastructure & Service Providers</h2>
+            <p>We partner with industry-standard cloud providers:</p>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
-              <li><strong>Dodo Payments</strong>: Merchant of Record for payment processing, tax compliance, and fraud detection.</li>
               <li><strong>Supabase</strong>: Cloud database and real-time WebSocket replication for leaderboard synchronization.</li>
-              <li><strong>Vercel</strong>: Hosting infrastructure and Content Delivery Network (CDN).</li>
+              <li><strong>Vercel</strong>: Secure cloud hosting and Edge Content Delivery Network (CDN).</li>
             </ul>
           </section>
 
@@ -79,7 +94,7 @@ export default function PrivacyPage() {
             <p>
               You have the right to request deletion of your submitted link or ask questions regarding your data privacy. Contact our privacy team at:
               <br />
-              <a href="mailto:support@outbids.auction" className="text-indigo-400 hover:underline font-medium">
+              <a href="mailto:support@outbids.auction" className="text-emerald-400 hover:underline font-medium">
                 support@outbids.auction
               </a>
             </p>

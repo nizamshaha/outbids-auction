@@ -85,16 +85,6 @@ export function Header({
           <span className="text-gray-400 text-xs sm:text-sm">Total Paid Bids:</span>
           <span className="font-bold text-white">{totalBids}</span>
         </div>
-
-        <div className="h-4 w-px bg-gray-800 hidden sm:block" />
-
-        <div className="flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-emerald-400" />
-          <span className="text-gray-400 text-xs sm:text-sm">Total Volume:</span>
-          <span className="font-bold text-emerald-400">
-            {formatCentsToDollars(totalVolumeCents)}
-          </span>
-        </div>
       </div>
     </header>
   );

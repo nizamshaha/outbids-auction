@@ -356,17 +356,8 @@ export function HeroBidding({
       </div>
 
       {/* Real-Time Metrics Bar */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-6 max-w-2xl w-full mt-8 p-3.5 rounded-2xl bg-gray-950/70 border border-gray-800/80 backdrop-blur-xl text-center">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 max-w-lg w-full mt-8 p-3.5 rounded-2xl bg-gray-950/70 border border-gray-800/80 backdrop-blur-xl text-center">
         <div className="space-y-0.5">
-          <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
-            Total Volume
-          </span>
-          <span className="text-sm sm:text-lg font-black text-emerald-400">
-            {formatCentsToDollars(totalVolumeCents)}
-          </span>
-        </div>
-
-        <div className="space-y-0.5 border-x border-gray-800 px-2">
           <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
             Total Live Bids
           </span>
@@ -375,7 +366,7 @@ export function HeroBidding({
           </span>
         </div>
 
-        <div className="space-y-0.5">
+        <div className="space-y-0.5 border-l border-gray-800 pl-2">
           <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
             Status
           </span>

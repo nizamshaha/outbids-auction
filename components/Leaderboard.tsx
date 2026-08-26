@@ -438,7 +438,7 @@ export function Leaderboard({
               ? 'Click the star icon on any card to track its rank movement and position over time.'
               : searchQuery || selectedCategory !== 'All'
               ? 'Try changing your search keywords or category filters.'
-              : 'Be the first website to claim a spot on the live attention market!'}
+              : 'Be the first website to claim a spot on the live marketplace for digital visibility!'}
           </p>
         </div>
       )}

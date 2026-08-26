@@ -4,15 +4,16 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://outbids.auction'),
   title: {
-    default: 'Outbids.auction | Public Attention Market - Sahara Edition',
+    default: 'Outbids.auction | A live marketplace for digital visibility',
     template: '%s | Outbids.auction',
   },
   description:
-    'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
+    'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
   keywords: [
+    'digital visibility',
+    'live marketplace',
     'digital billboard',
     'bidding leaderboard',
-    'attention market',
     'website promotion',
     'outbid',
     'live ranking',
@@ -31,9 +32,9 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Outbids.auction | Public Attention Market',
+    title: 'Outbids.auction | A live marketplace for digital visibility',
     description:
-      'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
+      'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
     url: 'https://outbids.auction',
     siteName: 'Outbids.auction',
     locale: 'en_US',
@@ -43,15 +44,15 @@ export const metadata: Metadata = {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'Outbids.auction - Public Attention Market',
+        alt: 'Outbids.auction - A live marketplace for digital visibility',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Outbids.auction | Public Attention Market',
+    title: 'Outbids.auction | A live marketplace for digital visibility',
     description:
-      'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
+      'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
     images: ['/opengraph-image'],
   },
   robots: {

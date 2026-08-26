@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Lock, ShieldCheck, Mail } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -12,7 +12,7 @@ export function Footer() {
             About OutBids.auction
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold mb-4 font-display text-on-surface">
-            An attention market for the internet.
+            A live marketplace for digital visibility.
           </h2>
           <p className="text-xs text-text-muted flex items-center gap-1.5 pt-2">
             <Lock className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -39,7 +39,7 @@ export function Footer() {
 
       {/* Bottom Bar */}
       <div className="max-w-7xl mx-auto mt-14 pt-8 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center text-xs text-text-muted font-semibold uppercase tracking-wider gap-4">
-        <div>OUTBIDS.AUCTION / PUBLIC ATTENTION MARKET</div>
+        <div>OUTBIDS.AUCTION / A LIVE MARKETPLACE FOR DIGITAL VISIBILITY</div>
         <div className="flex items-center gap-5 flex-wrap">
           <Link href="/#rules" className="hover:text-primary transition-colors">
             Rules

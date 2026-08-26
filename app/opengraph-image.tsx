@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Outbids.auction - Real-Time Bidding Leaderboard';
+export const alt = 'Outbids.auction - A live marketplace for digital visibility';
 export const size = {
   width: 1200,
   height: 630,
@@ -19,12 +19,12 @@ export default async function Image() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: '#08090d',
+          backgroundColor: '#faf5ee',
           backgroundImage:
-            'radial-gradient(circle at 50% 20%, rgba(249, 115, 22, 0.18), transparent 50%), radial-gradient(circle at 80% 80%, rgba(234, 88, 12, 0.12), transparent 40%)',
+            'radial-gradient(circle at 50% 20%, rgba(194, 101, 42, 0.12), transparent 55%), radial-gradient(circle at 85% 85%, rgba(194, 101, 42, 0.08), transparent 45%)',
           padding: '60px 80px',
-          fontFamily: 'sans-serif',
-          color: '#ffffff',
+          fontFamily: 'serif',
+          color: '#3a302a',
           position: 'relative',
         }}
       >
@@ -47,27 +47,14 @@ export default async function Image() {
           >
             <div
               style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                backgroundColor: '#f97316',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '24px',
+                fontSize: '32px',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                color: '#c2652a',
+                fontFamily: 'serif',
               }}
             >
-              👑
-            </div>
-            <div
-              style={{
-                fontSize: '28px',
-                fontWeight: 900,
-                letterSpacing: '-0.03em',
-                color: '#ffffff',
-              }}
-            >
-              OUTBIDS<span style={{ color: '#f97316' }}>.AUCTION</span>
+              OutBids.auction
             </div>
           </div>
 
@@ -79,12 +66,13 @@ export default async function Image() {
               gap: '8px',
               padding: '8px 18px',
               borderRadius: '999px',
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              color: '#34d399',
-              fontSize: '14px',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#047857',
+              fontSize: '13px',
               fontWeight: 800,
               letterSpacing: '0.08em',
+              fontFamily: 'sans-serif',
             }}
           >
             <div
@@ -95,7 +83,7 @@ export default async function Image() {
                 backgroundColor: '#10b981',
               }}
             />
-            LIVE 24/7 LEADERBOARD
+            LIVE 24/7 MARKETPLACE
           </div>
         </div>
 
@@ -111,38 +99,28 @@ export default async function Image() {
         >
           <div
             style={{
-              fontSize: '64px',
-              fontWeight: 900,
-              lineHeight: 1.1,
-              letterSpacing: '-0.04em',
+              fontSize: '60px',
+              fontWeight: 800,
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
               marginBottom: '20px',
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: '14px',
+              color: '#3a302a',
+              fontFamily: 'serif',
             }}
           >
-            <span>Claim</span>
-            <span
-              style={{
-                color: '#f97316',
-                textDecoration: 'underline',
-              }}
-            >
-              #1
-            </span>
-            <span>on the Live Digital Billboard</span>
+            A live marketplace for digital visibility.
           </div>
 
           <div
             style={{
               fontSize: '24px',
-              color: '#9ca3af',
+              color: '#605850',
               lineHeight: 1.4,
               maxWidth: '820px',
+              fontFamily: 'sans-serif',
             }}
           >
-            Outbid the competition to broadcast your website link globally in real-time.
+            New spots start at $1. Outbid the competition to broadcast your website link live in real-time.
           </div>
         </div>
 
@@ -152,8 +130,9 @@ export default async function Image() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '24px',
+            gap: '20px',
             width: '100%',
+            fontFamily: 'sans-serif',
           }}
         >
           <div
@@ -161,16 +140,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '12px 24px',
-              borderRadius: '16px',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              fontSize: '16px',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              backgroundColor: '#f2ece4',
+              border: '1px solid #d8d0c8',
+              fontSize: '14px',
               fontWeight: 700,
-              color: '#e5e7eb',
+              color: '#3a302a',
             }}
           >
-            ⚡ Real-Time WebSockets
+            ⚡ Live Supabase WebSockets
           </div>
 
           <div
@@ -178,16 +157,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '12px 24px',
-              borderRadius: '16px',
-              backgroundColor: 'rgba(249, 115, 22, 0.1)',
-              border: '1px solid rgba(249, 115, 22, 0.3)',
-              fontSize: '16px',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              backgroundColor: '#fbe8d8',
+              border: '1px solid rgba(194, 101, 42, 0.3)',
+              fontSize: '14px',
               fontWeight: 700,
-              color: '#fb923c',
+              color: '#c2652a',
             }}
           >
-            🏆 Top 3 Glowing Podium
+            🏆 Top 3 Showcase
           </div>
 
           <div
@@ -195,16 +174,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '12px 24px',
-              borderRadius: '16px',
-              backgroundColor: 'rgba(52, 211, 153, 0.1)',
-              border: '1px solid rgba(52, 211, 153, 0.3)',
-              fontSize: '16px',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              fontSize: '14px',
               fontWeight: 700,
-              color: '#34d399',
+              color: '#047857',
             }}
           >
-            💳 Instant PayPal Checkout
+            🛡️ Dodo Payments Verified
           </div>
         </div>
       </div>

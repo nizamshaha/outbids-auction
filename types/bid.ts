@@ -42,7 +42,7 @@ export interface Bid {
   created_at: string;
   updated_at?: string;
   url: string;
-  amount: number; // in USD cents (e.g. 500 = $5.00, 0 = Free)
+  amount: number; // in USD cents (e.g. 100 = $1.00, 0 = Free)
   status: BidStatus;
   category?: string;
   title?: string | null;

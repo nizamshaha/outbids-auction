@@ -12,8 +12,8 @@ export function RulesGrid() {
     },
     {
       icon: DollarSign,
-      title: 'Pay-As-You-Bid ($5 Min)',
-      description: 'Entry bids start at $5.00 USD. Place any amount higher to outrank competitor sites.',
+      title: 'Pay-As-You-Bid ($1 Min)',
+      description: 'Entry bids start at just $1.00 USD. Place any amount higher to outrank competitor sites.',
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/20',
     },

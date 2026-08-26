@@ -159,10 +159,10 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-semibold text-gray-400">Spot Available</p>
                 <button
-                  onClick={() => onSelectBidAmount?.(5)}
+                  onClick={() => onSelectBidAmount?.(1)}
                   className="mt-2 text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
                 >
-                  Claim #2 for $5
+                  Claim #2 for $1
                 </button>
               </div>
             )}
@@ -264,10 +264,10 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-bold text-orange-300">No Champion Yet!</p>
                 <button
-                  onClick={() => onSelectBidAmount?.(5)}
+                  onClick={() => onSelectBidAmount?.(1)}
                   className="mt-2 px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 text-xs font-bold hover:bg-orange-500/30 transition-colors cursor-pointer"
                 >
-                  Claim #1 for $5.00
+                  Claim #1 for $1.00
                 </button>
               </div>
             )}
@@ -361,10 +361,10 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-semibold text-gray-400">Spot Available</p>
                 <button
-                  onClick={() => onSelectBidAmount?.(5)}
+                  onClick={() => onSelectBidAmount?.(1)}
                   className="mt-2 text-[11px] text-amber-500 hover:text-white underline cursor-pointer"
                 >
-                  Claim #3 for $5
+                  Claim #3 for $1
                 </button>
               </div>
             )}

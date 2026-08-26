@@ -9,7 +9,7 @@ interface BidFormProps {
   onBidSubmitted?: () => void;
 }
 
-const MIN_BID_DOLLARS = 5;
+const MIN_BID_DOLLARS = 1;
 
 export function BidForm({ highestBidCents }: BidFormProps) {
   const [url, setUrl] = useState('');
@@ -207,6 +207,14 @@ export function BidForm({ highestBidCents }: BidFormProps) {
                 Take #1 (${outbidTopAmount})
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => handleQuickAdd(1)}
+              disabled={loading}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-800/80 border border-gray-700/60 text-gray-300 hover:bg-gray-700/80 transition-colors"
+            >
+              +$1
+            </button>
             <button
               type="button"
               onClick={() => handleQuickAdd(5)}

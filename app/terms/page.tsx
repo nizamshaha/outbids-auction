@@ -41,7 +41,7 @@ export default function TermsPage() {
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
               <li>Rankings are dynamic and update instantly in real-time via WebSocket connections.</li>
               <li>A higher bid from another user will reposition earlier bids lower on the leaderboard.</li>
-              <li>Bidding starts at a minimum of $5.00 USD.</li>
+              <li>Bidding starts at a minimum of $1.00 USD.</li>
             </ul>
           </section>
 

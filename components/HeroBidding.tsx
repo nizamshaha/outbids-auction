@@ -13,7 +13,7 @@ interface HeroBiddingProps {
   selectedAmountDollars?: number | null;
 }
 
-const MIN_BID_DOLLARS = 5;
+const MIN_BID_DOLLARS = 1;
 
 export function HeroBidding({
   highestBidCents,
@@ -30,9 +30,9 @@ export function HeroBidding({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Calculate dynamic claim price for #1: Highest + $5 (or $5 if 0)
+  // Calculate dynamic claim price for #1: Highest + $1 (or $1 if 0)
   const highestBidDollars = highestBidCents > 0 ? highestBidCents / 100 : 0;
-  const claimTopDollars = highestBidDollars > 0 ? Math.ceil(highestBidDollars + 5) : MIN_BID_DOLLARS;
+  const claimTopDollars = highestBidDollars > 0 ? Math.ceil(highestBidDollars + 1) : MIN_BID_DOLLARS;
 
   // Sync selected amount from podium clicks if provided
   useEffect(() => {
@@ -285,6 +285,14 @@ export function HeroBidding({
               >
                 <Zap className="w-3 h-3 text-orange-400" />
                 Take #1 (${claimTopDollars})
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAdd(1)}
+                disabled={loading}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                +$1
               </button>
               <button
                 type="button"

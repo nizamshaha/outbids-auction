@@ -199,7 +199,7 @@ export function Leaderboard({
     if (onSelectBidForTopUp) {
       onSelectBidForTopUp(bid);
     } else if (onSelectBidAmount) {
-      const nextDollars = Math.ceil(bid.amount / 100) + 5;
+      const nextDollars = Math.ceil(bid.amount / 100) + 1;
       onSelectBidAmount(nextDollars);
     }
   };

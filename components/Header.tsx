@@ -43,7 +43,7 @@ export function Header({
           </div>
           <div>
             <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Submit URL</h4>
-            <p className="text-xs text-gray-400 mt-0.5">Enter your link and set your bid amount ($5+)</p>
+            <p className="text-xs text-gray-400 mt-0.5">Enter your link and set your bid amount ($1+)</p>
           </div>
         </div>
 

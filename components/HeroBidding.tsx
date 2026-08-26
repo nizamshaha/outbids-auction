@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { sanitizeAndNormalizeUrl, getFaviconUrl, formatCentsToDollars } from '@/utils/formatters';
-import { BidCategory } from '@/types/bid';
+import { BidCategory, PLATFORM_CATEGORIES } from '@/types/bid';
 import { ArrowRight, Loader2, AlertCircle, Link as LinkIcon, DollarSign, Zap, Tag, Sparkles, CheckCircle2, Gift } from 'lucide-react';
 
 interface HeroBiddingProps {
@@ -14,18 +14,6 @@ interface HeroBiddingProps {
 }
 
 const MIN_BID_DOLLARS = 5;
-
-const CATEGORIES: BidCategory[] = [
-  'AI',
-  'Productivity',
-  'SEO',
-  'DevTools',
-  'Design',
-  'Marketing',
-  'E-Commerce',
-  'Crypto',
-  'Other',
-];
 
 export function HeroBidding({
   highestBidCents,
@@ -229,7 +217,7 @@ export function HeroBidding({
                 aria-label="Website Category"
                 className="w-full pl-8 pr-3 py-3 bg-gray-900/90 border border-gray-800 rounded-xl text-white text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all cursor-pointer"
               >
-                {CATEGORIES.map((cat) => (
+                {PLATFORM_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat} className="bg-gray-900 text-white">
                     {cat}
                   </option>

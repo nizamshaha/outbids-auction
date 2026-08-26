@@ -1,19 +1,63 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bid } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
-import { Crown, Medal, Sparkles, ArrowUpRight, MousePointerClick, Eye, Tag } from 'lucide-react';
+import { isWatchlisted, toggleWatchlist, getRankDelta, RankDeltaInfo } from '@/utils/watchlist';
+import { Crown, Medal, Sparkles, ArrowUpRight, MousePointerClick, Tag, Star } from 'lucide-react';
 
 interface TopPodiumProps {
   topBids: Bid[];
   onSelectBidAmount?: (amountDollars: number) => void;
+  onWatchlistChanged?: () => void;
 }
 
-export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
+function DeltaBadge({ deltaInfo }: { deltaInfo: RankDeltaInfo }) {
+  if (deltaInfo.type === 'up') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+        {deltaInfo.label}
+      </span>
+    );
+  }
+  if (deltaInfo.type === 'down') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">
+        {deltaInfo.label}
+      </span>
+    );
+  }
+  if (deltaInfo.type === 'new') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+        NEW
+      </span>
+    );
+  }
+  return null;
+}
+
+export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: TopPodiumProps) {
   const first = topBids[0] || null;
   const second = topBids[1] || null;
   const third = topBids[2] || null;
+
+  const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const list = topBids.map((b) => b.id).filter((id) => isWatchlisted(id));
+    setWatchlistIds(list);
+  }, [topBids]);
+
+  const handleToggleStar = (bidId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isNowBookmarked = toggleWatchlist(bidId);
+    setWatchlistIds((prev) =>
+      isNowBookmarked ? [...prev, bidId] : prev.filter((id) => id !== bidId)
+    );
+    onWatchlistChanged?.();
+  };
 
   return (
     <div className="w-full my-8">
@@ -36,20 +80,36 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                 <div className="w-8 h-8 rounded-xl bg-slate-400/20 border border-slate-400/40 text-slate-200 flex items-center justify-center font-black text-sm">
                   <Medal className="w-4 h-4 text-slate-300" />
                 </div>
-                <span className="text-xs font-bold text-slate-300 tracking-wider uppercase">Rank #2</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-300 tracking-wider uppercase">Rank #2</span>
+                  {second && <DeltaBadge deltaInfo={getRankDelta(second.id, 2)} />}
+                </div>
               </div>
               {second && (
-                <span className="text-sm font-black text-white px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700">
-                  {second.amount > 0 ? formatCentsToDollars(second.amount) : 'Free'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => handleToggleStar(second.id, e)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+                    title="Bookmark to Watchlist"
+                    aria-label="Bookmark to Watchlist"
+                  >
+                    <Star
+                      className={`w-4 h-4 ${
+                        watchlistIds.includes(second.id) ? 'fill-amber-400 text-amber-400' : 'text-gray-400'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm font-black text-white px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700">
+                    {second.amount > 0 ? formatCentsToDollars(second.amount) : 'Free'}
+                  </span>
+                </div>
               )}
             </div>
 
             {second ? (
               (() => {
-                const { displayDomain, normalizedUrl } = sanitizeAndNormalizeUrl(second.url);
+                const { displayDomain } = sanitizeAndNormalizeUrl(second.url);
                 const favicon = second.icon_url || getFaviconUrl(second.url);
-                const clickRedirect = `/api/click?id=${second.id}&to=${encodeURIComponent(normalizedUrl)}`;
                 return (
                   <div className="space-y-2.5 pt-1">
                     <div className="flex items-center gap-3">
@@ -64,7 +124,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                       </div>
                       <div className="min-w-0">
                         <a
-                          href={clickRedirect}
+                          href={`/go/${second.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-bold text-white hover:text-slate-300 transition-colors flex items-center gap-1.5 truncate group"
@@ -99,7 +159,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-semibold text-gray-400">Spot Available</p>
                 <button
-                  onClick={() => onSelectBidAmount && onSelectBidAmount(5)}
+                  onClick={() => onSelectBidAmount?.(5)}
                   className="mt-2 text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
                 >
                   Claim #2 for $5
@@ -121,14 +181,29 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                   <Crown className="w-5 h-5 text-orange-300" />
                 </div>
                 <div>
-                  <span className="text-xs font-black text-orange-400 tracking-wider uppercase block">
-                    Champion #1
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black text-orange-400 tracking-wider uppercase block">
+                      Champion #1
+                    </span>
+                    {first && <DeltaBadge deltaInfo={getRankDelta(first.id, 1)} />}
+                  </div>
                   <span className="text-[10px] text-orange-300/80 font-medium">Current Leader</span>
                 </div>
               </div>
               {first && (
-                <div className="text-right">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => handleToggleStar(first.id, e)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+                    title="Bookmark to Watchlist"
+                    aria-label="Bookmark to Watchlist"
+                  >
+                    <Star
+                      className={`w-4 h-4 ${
+                        watchlistIds.includes(first.id) ? 'fill-amber-400 text-amber-400' : 'text-gray-400'
+                      }`}
+                    />
+                  </button>
                   <span className="text-base sm:text-lg font-black text-orange-300 px-3 py-1 rounded-xl bg-orange-950/80 border border-orange-500/50 shadow-inner">
                     {first.amount > 0 ? formatCentsToDollars(first.amount) : 'Free'}
                   </span>
@@ -138,9 +213,8 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
 
             {first ? (
               (() => {
-                const { displayDomain, normalizedUrl } = sanitizeAndNormalizeUrl(first.url);
+                const { displayDomain } = sanitizeAndNormalizeUrl(first.url);
                 const favicon = first.icon_url || getFaviconUrl(first.url);
-                const clickRedirect = `/api/click?id=${first.id}&to=${encodeURIComponent(normalizedUrl)}`;
                 return (
                   <div className="space-y-3 pt-1">
                     <div className="flex items-center gap-3.5">
@@ -155,7 +229,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <a
-                          href={clickRedirect}
+                          href={`/go/${first.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-base sm:text-lg font-extrabold text-white hover:text-orange-300 transition-colors flex items-center gap-1.5 truncate group"
@@ -190,7 +264,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-bold text-orange-300">No Champion Yet!</p>
                 <button
-                  onClick={() => onSelectBidAmount && onSelectBidAmount(5)}
+                  onClick={() => onSelectBidAmount?.(5)}
                   className="mt-2 px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 border border-orange-500/40 text-xs font-bold hover:bg-orange-500/30 transition-colors cursor-pointer"
                 >
                   Claim #1 for $5.00
@@ -208,20 +282,36 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                 <div className="w-8 h-8 rounded-xl bg-amber-800/20 border border-amber-700/40 text-amber-500 flex items-center justify-center font-black text-sm">
                   <Medal className="w-4 h-4 text-amber-500" />
                 </div>
-                <span className="text-xs font-bold text-amber-500 tracking-wider uppercase">Rank #3</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-amber-500 tracking-wider uppercase">Rank #3</span>
+                  {third && <DeltaBadge deltaInfo={getRankDelta(third.id, 3)} />}
+                </div>
               </div>
               {third && (
-                <span className="text-sm font-black text-white px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-800/60">
-                  {third.amount > 0 ? formatCentsToDollars(third.amount) : 'Free'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => handleToggleStar(third.id, e)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+                    title="Bookmark to Watchlist"
+                    aria-label="Bookmark to Watchlist"
+                  >
+                    <Star
+                      className={`w-4 h-4 ${
+                        watchlistIds.includes(third.id) ? 'fill-amber-400 text-amber-400' : 'text-gray-400'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm font-black text-white px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-800/60">
+                    {third.amount > 0 ? formatCentsToDollars(third.amount) : 'Free'}
+                  </span>
+                </div>
               )}
             </div>
 
             {third ? (
               (() => {
-                const { displayDomain, normalizedUrl } = sanitizeAndNormalizeUrl(third.url);
+                const { displayDomain } = sanitizeAndNormalizeUrl(third.url);
                 const favicon = third.icon_url || getFaviconUrl(third.url);
-                const clickRedirect = `/api/click?id=${third.id}&to=${encodeURIComponent(normalizedUrl)}`;
                 return (
                   <div className="space-y-2.5 pt-1">
                     <div className="flex items-center gap-3">
@@ -236,7 +326,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
                       </div>
                       <div className="min-w-0">
                         <a
-                          href={clickRedirect}
+                          href={`/go/${third.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-bold text-white hover:text-amber-300 transition-colors flex items-center gap-1.5 truncate group"
@@ -271,7 +361,7 @@ export function TopPodium({ topBids, onSelectBidAmount }: TopPodiumProps) {
               <div className="py-6 text-center text-gray-400 text-xs">
                 <p className="font-semibold text-gray-400">Spot Available</p>
                 <button
-                  onClick={() => onSelectBidAmount && onSelectBidAmount(5)}
+                  onClick={() => onSelectBidAmount?.(5)}
                   className="mt-2 text-[11px] text-amber-500 hover:text-white underline cursor-pointer"
                 >
                   Claim #3 for $5

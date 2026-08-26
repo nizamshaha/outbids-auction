@@ -1,14 +1,41 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bid } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
-import { ExternalLink, MousePointerClick, Tag, Clock, ArrowUpRight, Zap } from 'lucide-react';
+import { isWatchlisted, toggleWatchlist, getRankDelta, RankDeltaInfo } from '@/utils/watchlist';
+import { MousePointerClick, Tag, Clock, ArrowUpRight, Zap, Star } from 'lucide-react';
 
 interface LeaderboardCardProps {
   bid: Bid;
   rank: number;
   onTopUp?: (bid: Bid) => void;
+  onWatchlistChanged?: () => void;
+}
+
+function DeltaBadge({ deltaInfo }: { deltaInfo: RankDeltaInfo }) {
+  if (deltaInfo.type === 'up') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+        {deltaInfo.label}
+      </span>
+    );
+  }
+  if (deltaInfo.type === 'down') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">
+        {deltaInfo.label}
+      </span>
+    );
+  }
+  if (deltaInfo.type === 'new') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+        NEW
+      </span>
+    );
+  }
+  return null;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -30,19 +57,36 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
-export function LeaderboardCard({ bid, rank, onTopUp }: LeaderboardCardProps) {
-  const { displayDomain, normalizedUrl } = sanitizeAndNormalizeUrl(bid.url);
+export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: LeaderboardCardProps) {
+  const { displayDomain } = sanitizeAndNormalizeUrl(bid.url);
   const favicon = bid.icon_url || getFaviconUrl(bid.url);
-  const clickRedirect = `/api/click?id=${bid.id}&to=${encodeURIComponent(normalizedUrl)}`;
   const timeAgo = formatRelativeTime(bid.updated_at || bid.created_at);
+  const deltaInfo = getRankDelta(bid.id, rank);
+
+  const [bookmarked, setBookmarked] = useState(false);
+
+  useEffect(() => {
+    setBookmarked(isWatchlisted(bid.id));
+  }, [bid.id]);
+
+  const handleToggleStar = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newState = toggleWatchlist(bid.id);
+    setBookmarked(newState);
+    onWatchlistChanged?.();
+  };
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-gray-950/60 hover:bg-gray-900/70 border border-gray-850 hover:border-gray-700 transition-all gap-4 group">
       {/* Left: Rank + Icon + Details */}
       <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-        {/* Rank Badge */}
-        <div className="w-8 h-8 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center font-black text-xs text-gray-300 shrink-0">
-          #{rank}
+        {/* Rank Badge + Delta */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center font-black text-xs text-gray-300">
+            #{rank}
+          </div>
+          <DeltaBadge deltaInfo={deltaInfo} />
         </div>
 
         {/* Site Icon */}
@@ -60,7 +104,7 @@ export function LeaderboardCard({ bid, rank, onTopUp }: LeaderboardCardProps) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={clickRedirect}
+              href={`/go/${bid.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-bold text-white hover:text-orange-400 transition-colors flex items-center gap-1.5 truncate"
@@ -102,8 +146,21 @@ export function LeaderboardCard({ bid, rank, onTopUp }: LeaderboardCardProps) {
         </div>
       </div>
 
-      {/* Right: Amount & Top-Up CTA */}
-      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-900">
+      {/* Right: Watchlist Star + Amount & Top-Up CTA */}
+      <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-900">
+        <button
+          onClick={handleToggleStar}
+          className="p-2 rounded-xl bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-400 hover:text-amber-400 transition-colors cursor-pointer"
+          title={bookmarked ? 'Remove from Watchlist' : 'Bookmark to Watchlist'}
+          aria-label={bookmarked ? 'Remove from Watchlist' : 'Bookmark to Watchlist'}
+        >
+          <Star
+            className={`w-4 h-4 ${
+              bookmarked ? 'fill-amber-400 text-amber-400' : 'text-gray-400'
+            }`}
+          />
+        </button>
+
         <span className="text-sm font-black text-white px-3 py-1.5 rounded-xl bg-gray-900 border border-gray-800">
           {bid.amount > 0 ? formatCentsToDollars(bid.amount) : 'Free'}
         </span>

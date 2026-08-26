@@ -1,15 +1,37 @@
 export type BidStatus = 'pending' | 'paid' | 'failed';
 
-export type BidCategory =
-  | 'AI'
-  | 'Productivity'
-  | 'SEO'
-  | 'DevTools'
-  | 'Design'
-  | 'Marketing'
-  | 'E-Commerce'
-  | 'Crypto'
-  | 'Other';
+export const PLATFORM_CATEGORIES = [
+  'AI',
+  'Productivity',
+  'SEO',
+  'DevTools',
+  'Design',
+  'Marketing',
+  'E-Commerce',
+  'Crypto',
+  'SaaS',
+  'Finance',
+  'Analytics',
+  'Social',
+  'Education',
+  'Gaming',
+  'Health',
+  'Media',
+  'Developer',
+  'Security',
+  'News',
+  'No-Code',
+  'Automation',
+  'API',
+  'Open Source',
+  'Community',
+  'Utility',
+  'Agency',
+  'Mobile',
+  'Other',
+] as const;
+
+export type BidCategory = (typeof PLATFORM_CATEGORIES)[number];
 
 export interface Bid {
   id: string;
@@ -33,6 +55,7 @@ export interface CreateCheckoutPayload {
   category?: string;
   title?: string;
   description?: string;
+  isFreeTier?: boolean;
 }
 
 export interface CheckoutResponse {
@@ -43,6 +66,7 @@ export interface CheckoutResponse {
   isTopUp?: boolean;
   amountChargedDollars?: number;
   totalBidDollars?: number;
+  message?: string;
   error?: string;
 }
 

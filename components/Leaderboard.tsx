@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { Bid, BidCategory } from '@/types/bid';
+import { Bid, PLATFORM_CATEGORIES } from '@/types/bid';
 import { supabase } from '@/utils/supabase/client';
 import { TopPodium } from './TopPodium';
 import { LeaderboardCard } from './LeaderboardCard';
-import { Flame, RefreshCw, Search, Sparkles, Trophy, Clock, Gift, Tag, ChevronDown } from 'lucide-react';
+import { MidnightCountdown } from './MidnightCountdown';
+import { getWatchlist, saveRankSnapshot } from '@/utils/watchlist';
+import { Flame, RefreshCw, Search, Sparkles, Trophy, Clock, Gift, Star, Calendar, Globe } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface LeaderboardProps {
@@ -16,21 +18,9 @@ interface LeaderboardProps {
   onSelectBidForTopUp?: (bid: Bid) => void;
 }
 
-type TabMode = 'top10' | 'top25' | 'latest' | 'free' | 'all';
+type TemporalTab = 'all' | 'today' | 'week' | 'latest' | 'watchlist' | 'free';
 
-const CATEGORIES: ('All' | BidCategory)[] = [
-  'All',
-  'AI',
-  'Productivity',
-  'SEO',
-  'DevTools',
-  'Design',
-  'Marketing',
-  'E-Commerce',
-  'Crypto',
-  'Other',
-];
-
+const ALL_CATEGORIES = ['All', ...PLATFORM_CATEGORIES];
 const ITEMS_PER_PAGE = 10;
 
 export function Leaderboard({
@@ -45,10 +35,11 @@ export function Leaderboard({
   const [error, setError] = useState<string | null>(null);
 
   // Filter & Section State
-  const [activeTab, setActiveTab] = useState<TabMode>('top25');
+  const [activeTab, setActiveTab] = useState<TemporalTab>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [watchlistVersion, setWatchlistVersion] = useState(0);
 
   const onStatsUpdateRef = useRef(onStatsUpdate);
   const onConnectionChangeRef = useRef(onConnectionChange);
@@ -68,14 +59,18 @@ export function Leaderboard({
     });
   }, []);
 
-  // Compute and emit stats
-  const emitStats = useCallback(
+  // Compute and emit stats + record rank snapshot
+  const emitStatsAndSnapshot = useCallback(
     (currentBids: Bid[]) => {
       if (!onStatsUpdateRef.current) return;
       const count = currentBids.length;
       const highest = currentBids.length > 0 ? currentBids[0].amount : 0;
       const totalVolume = currentBids.reduce((acc, b) => acc + b.amount, 0);
       onStatsUpdateRef.current({ count, highest, totalVolume });
+
+      // Save rank snapshots for rank movement delta calculation
+      const snapshot = currentBids.map((b, idx) => ({ id: b.id, rank: idx + 1 }));
+      saveRankSnapshot(snapshot);
     },
     []
   );
@@ -97,14 +92,14 @@ export function Leaderboard({
 
       const sorted = sortRankBids((data as Bid[]) || []);
       setBids(sorted);
-      emitStats(sorted);
+      emitStatsAndSnapshot(sorted);
     } catch (err: any) {
       console.error('Error loading bids:', err);
       setError(err?.message || 'Failed to load leaderboard bids.');
     } finally {
       setLoading(false);
     }
-  }, [sortRankBids, emitStats]);
+  }, [sortRankBids, emitStatsAndSnapshot]);
 
   useEffect(() => {
     fetchPaidBids();
@@ -168,7 +163,7 @@ export function Leaderboard({
             }
 
             const sorted = sortRankBids(updatedList);
-            emitStats(sorted);
+            emitStatsAndSnapshot(sorted);
             return sorted;
           });
         }
@@ -184,7 +179,7 @@ export function Leaderboard({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sortRankBids, emitStats]);
+  }, [sortRankBids, emitStatsAndSnapshot]);
 
   // Handle Outbid / Top-Up Action
   const handleTopUpClick = (bid: Bid) => {
@@ -196,28 +191,43 @@ export function Leaderboard({
     }
   };
 
-  // Filtered & Sorted Bids based on Active Tab, Category, and Search
+  const handleWatchlistChanged = () => {
+    setWatchlistVersion((v) => v + 1);
+  };
+
+  // Filtered & Sorted Bids based on Temporal Tab, Category, and Search
   const filteredBids = useMemo(() => {
     let result = [...bids];
 
-    // 1. Tab Filtering & Ordering
-    if (activeTab === 'latest') {
+    const now = new Date();
+
+    // 1. Temporal & View Tab Filter
+    if (activeTab === 'today') {
+      const startOfTodayUTC = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+      );
+      result = result.filter((b) => new Date(b.created_at) >= startOfTodayUTC);
+    } else if (activeTab === 'week') {
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      result = result.filter((b) => new Date(b.created_at) >= sevenDaysAgo);
+    } else if (activeTab === 'latest') {
       result.sort((a, b) => {
         const timeA = new Date(a.updated_at || a.created_at).getTime();
         const timeB = new Date(b.updated_at || b.created_at).getTime();
         return timeB - timeA;
       });
+    } else if (activeTab === 'watchlist') {
+      const savedIds = getWatchlist();
+      result = result.filter((b) => savedIds.includes(b.id));
     } else if (activeTab === 'free') {
       result = result.filter((b) => b.amount === 0);
-    } else if (activeTab === 'top10') {
-      result = result.slice(0, 10);
-    } else if (activeTab === 'top25') {
-      result = result.slice(0, 25);
     }
 
     // 2. Category Filter
     if (selectedCategory !== 'All') {
-      result = result.filter((b) => (b.category || 'Other').toLowerCase() === selectedCategory.toLowerCase());
+      result = result.filter(
+        (b) => (b.category || 'Other').toLowerCase() === selectedCategory.toLowerCase()
+      );
     }
 
     // 3. Search Query Filter
@@ -233,10 +243,13 @@ export function Leaderboard({
     }
 
     return result;
-  }, [bids, activeTab, selectedCategory, searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bids, activeTab, selectedCategory, searchQuery, watchlistVersion]);
 
-  // Paginated slice (showing beyond Top 3 if viewing rank lists)
-  const isPodiumVisible = activeTab !== 'latest' && activeTab !== 'free' && !searchQuery && selectedCategory === 'All';
+  // Determine if Top 3 Podium is displayed
+  const isPodiumVisible =
+    activeTab === 'all' && !searchQuery && selectedCategory === 'All';
+
   const listItems = isPodiumVisible ? filteredBids.slice(3) : filteredBids;
   const paginatedItems = listItems.slice(0, visibleCount);
 
@@ -244,42 +257,62 @@ export function Leaderboard({
     <div className="w-full">
       {/* Top 3 Podium (Displayed for overall rankings) */}
       {isPodiumVisible && (
-        <TopPodium topBids={bids.slice(0, 3)} onSelectBidAmount={onSelectBidAmount} />
+        <TopPodium
+          topBids={bids.slice(0, 3)}
+          onSelectBidAmount={onSelectBidAmount}
+          onWatchlistChanged={handleWatchlistChanged}
+        />
       )}
 
       {/* --- LEADERBOARD CONTROLS & SECTIONS --- */}
       <div className="w-full mt-10 mb-6 space-y-4">
-        {/* Section Tabs Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-gray-800">
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-950/80 border border-gray-800 text-xs font-bold overflow-x-auto">
+        {/* Temporal Tabs + Midnight Countdown Bar */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-gray-800">
+          {/* Tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-950/80 border border-gray-800 text-xs font-bold overflow-x-auto scrollbar-none">
             <button
               onClick={() => {
-                setActiveTab('top25');
+                setActiveTab('all');
                 setVisibleCount(ITEMS_PER_PAGE);
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                activeTab === 'top25'
+                activeTab === 'all'
                   ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Trophy className="w-3.5 h-3.5" />
-              <span>Top 25</span>
+              <Globe className="w-3.5 h-3.5" />
+              <span>All-Time</span>
             </button>
 
             <button
               onClick={() => {
-                setActiveTab('top10');
+                setActiveTab('today');
                 setVisibleCount(ITEMS_PER_PAGE);
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                activeTab === 'top10'
+                activeTab === 'today'
                   ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Top 10</span>
+              <span>Today</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('week');
+                setVisibleCount(ITEMS_PER_PAGE);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'week'
+                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Week</span>
             </button>
 
             <button
@@ -299,6 +332,21 @@ export function Leaderboard({
 
             <button
               onClick={() => {
+                setActiveTab('watchlist');
+                setVisibleCount(ITEMS_PER_PAGE);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'watchlist'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  : 'text-amber-400 hover:text-amber-300'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5" />
+              <span>Watchlist</span>
+            </button>
+
+            <button
+              onClick={() => {
                 setActiveTab('free');
                 setVisibleCount(ITEMS_PER_PAGE);
               }}
@@ -313,27 +361,31 @@ export function Leaderboard({
             </button>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
-              <Search className="w-3.5 h-3.5" />
+          {/* Right: Midnight UTC Timer & Search */}
+          <div className="flex items-center gap-2.5">
+            {activeTab === 'today' && <MidnightCountdown />}
+
+            <div className="relative w-full sm:w-60">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                <Search className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setVisibleCount(ITEMS_PER_PAGE);
+                }}
+                placeholder="Search website, title, tags..."
+                className="w-full pl-8 pr-3 py-2 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all"
+              />
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setVisibleCount(ITEMS_PER_PAGE);
-              }}
-              placeholder="Search website, title, or tags..."
-              className="w-full pl-8 pr-3 py-2 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all"
-            />
           </div>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* 28 Categories Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none text-xs">
-          {CATEGORIES.map((cat) => (
+          {ALL_CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => {
@@ -381,9 +433,13 @@ export function Leaderboard({
           <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto mb-3">
             <Flame className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-black text-white">No listings found</h3>
+          <h3 className="text-lg font-black text-white">
+            {activeTab === 'watchlist' ? 'Your Watchlist is Empty' : 'No listings found'}
+          </h3>
           <p className="text-xs sm:text-sm text-gray-400 mt-1 max-w-sm mx-auto">
-            {searchQuery || selectedCategory !== 'All'
+            {activeTab === 'watchlist'
+              ? 'Click the star icon on any card to track its rank movement and position over time.'
+              : searchQuery || selectedCategory !== 'All'
               ? 'Try changing your search keywords or category filters.'
               : 'Be the first website to claim a spot on the live digital billboard!'}
           </p>
@@ -394,13 +450,28 @@ export function Leaderboard({
       <div className="space-y-3 my-4">
         {paginatedItems.map((bid, index) => {
           const rank = isPodiumVisible ? index + 4 : index + 1;
+          const showTop10Divider = isPodiumVisible && rank === 11;
+
           return (
-            <LeaderboardCard
-              key={bid.id}
-              bid={bid}
-              rank={rank}
-              onTopUp={handleTopUpClick}
-            />
+            <React.Fragment key={bid.id}>
+              {showTop10Divider && (
+                <div className="flex items-center gap-3 py-3 my-2">
+                  <div className="h-px bg-gray-850 flex-1" />
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-400/80 px-2 flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-orange-400" />
+                    Top 10 Spotlight Ends • Next Contenders
+                  </span>
+                  <div className="h-px bg-gray-850 flex-1" />
+                </div>
+              )}
+
+              <LeaderboardCard
+                bid={bid}
+                rank={rank}
+                onTopUp={handleTopUpClick}
+                onWatchlistChanged={handleWatchlistChanged}
+              />
+            </React.Fragment>
           );
         })}
       </div>
@@ -413,7 +484,6 @@ export function Leaderboard({
             className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-200 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-lg"
           >
             <span>Load More Placements ({listItems.length - visibleCount} remaining)</span>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
         </div>
       )}

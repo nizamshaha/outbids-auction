@@ -54,10 +54,10 @@ export function sanitizeAndNormalizeUrl(rawUrl: string): { isValid: boolean; nor
 /**
  * Returns Google Favicon URL for a given domain
  */
-export function getFaviconUrl(url: string): string {
+export function getFaviconUrl(url: string, size: number = 64): string {
   try {
     const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
-    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`;
+    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=${size}`;
   } catch {
     return '';
   }

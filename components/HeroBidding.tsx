@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { sanitizeAndNormalizeUrl, getFaviconUrl, formatCentsToDollars } from '@/utils/formatters';
-import { ArrowRight, Loader2, Sparkles, AlertCircle, Link as LinkIcon, DollarSign, Zap, TrendingUp, DollarSign as DollarIcon, Radio } from 'lucide-react';
+import { BidCategory } from '@/types/bid';
+import { ArrowRight, Loader2, AlertCircle, Link as LinkIcon, DollarSign, Zap, Tag, Sparkles, CheckCircle2, Gift } from 'lucide-react';
 
 interface HeroBiddingProps {
   highestBidCents: number;
@@ -14,6 +15,18 @@ interface HeroBiddingProps {
 
 const MIN_BID_DOLLARS = 5;
 
+const CATEGORIES: BidCategory[] = [
+  'AI',
+  'Productivity',
+  'SEO',
+  'DevTools',
+  'Design',
+  'Marketing',
+  'E-Commerce',
+  'Crypto',
+  'Other',
+];
+
 export function HeroBidding({
   highestBidCents,
   totalBids,
@@ -23,8 +36,11 @@ export function HeroBidding({
 }: HeroBiddingProps) {
   const [url, setUrl] = useState('');
   const [amount, setAmount] = useState<string>('');
+  const [category, setCategory] = useState<BidCategory>('AI');
+  const [isFreeMode, setIsFreeMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Calculate dynamic claim price for #1: Highest + $5 (or $5 if 0)
   const highestBidDollars = highestBidCents > 0 ? highestBidCents / 100 : 0;
@@ -34,6 +50,7 @@ export function HeroBidding({
   useEffect(() => {
     if (selectedAmountDollars && selectedAmountDollars >= MIN_BID_DOLLARS) {
       setAmount(selectedAmountDollars.toString());
+      setIsFreeMode(false);
     }
   }, [selectedAmountDollars]);
 
@@ -43,6 +60,7 @@ export function HeroBidding({
   const previewFavicon = urlValidation.isValid ? getFaviconUrl(urlValidation.normalizedUrl) : null;
 
   const handleQuickAdd = (addedDollars: number) => {
+    setIsFreeMode(false);
     const current = parseFloat(amount) || (highestBidDollars > 0 ? highestBidDollars : 0);
     const nextAmount = Math.max(MIN_BID_DOLLARS, Math.round(current + addedDollars));
     setAmount(nextAmount.toString());
@@ -50,13 +68,26 @@ export function HeroBidding({
   };
 
   const handleSetClaimTop = () => {
+    setIsFreeMode(false);
     setAmount(claimTopDollars.toString());
+    setErrorMessage(null);
+  };
+
+  const handleToggleFree = () => {
+    if (!isFreeMode) {
+      setIsFreeMode(true);
+      setAmount('0');
+    } else {
+      setIsFreeMode(false);
+      setAmount(MIN_BID_DOLLARS.toString());
+    }
     setErrorMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     // Validate URL
     if (!url.trim()) {
@@ -69,11 +100,13 @@ export function HeroBidding({
       return;
     }
 
-    // Validate Amount
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount < MIN_BID_DOLLARS) {
-      setErrorMessage(`Minimum bid is $${MIN_BID_DOLLARS}.00 USD.`);
-      return;
+
+    if (!isFreeMode) {
+      if (isNaN(parsedAmount) || parsedAmount < MIN_BID_DOLLARS) {
+        setErrorMessage(`Minimum paid bid is $${MIN_BID_DOLLARS}.00 USD.`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -86,7 +119,9 @@ export function HeroBidding({
         },
         body: JSON.stringify({
           url: urlValidation.normalizedUrl,
-          amountInDollars: parsedAmount,
+          amountInDollars: isFreeMode ? 0 : parsedAmount,
+          category,
+          isFreeTier: isFreeMode,
         }),
       });
 
@@ -96,7 +131,13 @@ export function HeroBidding({
         throw new Error(data.error || 'Failed to initialize checkout.');
       }
 
-      if (data.url) {
+      if (data.provider === 'free') {
+        setSuccessMessage(data.message || '🎉 Free listing successfully added to the leaderboard!');
+        setUrl('');
+        setAmount('');
+        setIsFreeMode(false);
+        setLoading(false);
+      } else if (data.url) {
         window.location.href = data.url;
       } else {
         throw new Error('No checkout URL received from server.');
@@ -111,7 +152,7 @@ export function HeroBidding({
   return (
     <section className="w-full pt-8 pb-4 flex flex-col items-center text-center">
       {/* Live Badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-gray-900/90 border border-gray-800 backdrop-blur-md shadow-inner mb-6">
+      <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-gray-900/90 border border-gray-800 backdrop-blur-md shadow-inner mb-6">
         <span className="relative flex h-2.5 w-2.5">
           {isConnected ? (
             <>
@@ -149,10 +190,17 @@ export function HeroBidding({
           </div>
         )}
 
+        {successMessage && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-emerald-300 text-xs text-left animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             {/* Website URL Input */}
-            <div className="sm:col-span-7 relative">
+            <div className="sm:col-span-6 relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500">
                 <LinkIcon className="w-4 h-4" />
               </div>
@@ -169,52 +217,83 @@ export function HeroBidding({
               />
             </div>
 
+            {/* Category Dropdown */}
+            <div className="sm:col-span-3 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                <Tag className="w-3.5 h-3.5" />
+              </div>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as BidCategory)}
+                disabled={loading}
+                aria-label="Website Category"
+                className="w-full pl-8 pr-3 py-3 bg-gray-900/90 border border-gray-800 rounded-xl text-white text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all cursor-pointer"
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat} className="bg-gray-900 text-white">
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Bid Amount Input */}
-            <div className="sm:col-span-5 relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-500">
+            <div className="sm:col-span-3 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
                 <DollarSign className="w-4 h-4" />
               </div>
               <input
                 type="number"
-                min={MIN_BID_DOLLARS}
+                min={isFreeMode ? 0 : MIN_BID_DOLLARS}
                 step="1"
                 value={amount}
                 onChange={(e) => {
                   setAmount(e.target.value);
                   setErrorMessage(null);
+                  if (parseFloat(e.target.value) > 0) {
+                    setIsFreeMode(false);
+                  }
                 }}
-                placeholder={`Min $${MIN_BID_DOLLARS}`}
-                disabled={loading}
-                className="w-full pl-9 pr-3 py-3 bg-gray-900/90 border border-gray-800 rounded-xl text-white placeholder-gray-500 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all disabled:opacity-50"
+                placeholder={isFreeMode ? 'Free ($0)' : `Min $${MIN_BID_DOLLARS}`}
+                disabled={loading || isFreeMode}
+                className={`w-full pl-8 pr-3 py-3 bg-gray-900/90 border rounded-xl text-white placeholder-gray-500 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all ${
+                  isFreeMode ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/5' : 'border-gray-800'
+                }`}
               />
             </div>
           </div>
 
-          {/* Live URL Preview Pill */}
+          {/* Live URL Preview Pill with Scraper Indicator */}
           {previewDomain && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 text-xs text-left animate-in fade-in">
-              {previewFavicon && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={previewFavicon}
-                  alt=""
-                  className="w-4 h-4 object-contain rounded"
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-                />
-              )}
-              <span className="text-gray-400">Target:</span>
-              <span className="font-semibold text-orange-400 truncate">{previewDomain}</span>
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-900/90 border border-gray-800 text-xs text-left animate-in fade-in">
+              <div className="flex items-center gap-2 truncate">
+                {previewFavicon && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={previewFavicon}
+                    alt=""
+                    className="w-4 h-4 object-contain rounded shrink-0"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
+                )}
+                <span className="text-gray-400">Target:</span>
+                <span className="font-semibold text-orange-400 truncate">{previewDomain}</span>
+              </div>
+              <span className="text-[10px] text-gray-400 shrink-0 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-orange-400" />
+                Auto-scrapes Title & Icon
+              </span>
             </div>
           )}
 
-          {/* Quick Increment Suggestions & Outbid Button */}
+          {/* Quick Increment Suggestions & CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleSetClaimTop}
                 disabled={loading}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 transition-colors flex items-center gap-1"
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <Zap className="w-3 h-3 text-orange-400" />
                 Take #1 (${claimTopDollars})
@@ -223,7 +302,7 @@ export function HeroBidding({
                 type="button"
                 onClick={() => handleQuickAdd(5)}
                 disabled={loading}
-                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 +$5
               </button>
@@ -231,7 +310,7 @@ export function HeroBidding({
                 type="button"
                 onClick={() => handleQuickAdd(10)}
                 disabled={loading}
-                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 +$10
               </button>
@@ -239,22 +318,44 @@ export function HeroBidding({
                 type="button"
                 onClick={() => handleQuickAdd(25)}
                 disabled={loading}
-                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-gray-850 border border-gray-800 text-gray-300 hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 +$25
               </button>
+              <button
+                type="button"
+                onClick={handleToggleFree}
+                disabled={loading}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                  isFreeMode
+                    ? 'bg-emerald-500/25 border border-emerald-400/60 text-emerald-300'
+                    : 'bg-gray-850 border border-gray-800 text-emerald-400/80 hover:bg-gray-800'
+                }`}
+              >
+                <Gift className="w-3 h-3 text-emerald-400" />
+                Free ($0)
+              </button>
             </div>
 
-            {/* Outbid CTA Button */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-extrabold text-sm bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-black shadow-lg shadow-orange-500/25 flex items-center justify-center gap-1.5 transition-all transform active:scale-95 disabled:opacity-60 cursor-pointer"
+              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-extrabold text-sm shadow-lg flex items-center justify-center gap-1.5 transition-all transform active:scale-95 disabled:opacity-60 cursor-pointer ${
+                isFreeMode
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-black shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-500'
+                  : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-black shadow-orange-500/25'
+              }`}
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-black" />
-                  <span>Connecting...</span>
+                  <span>Processing...</span>
+                </>
+              ) : isFreeMode ? (
+                <>
+                  <span>Submit Free Listing</span>
+                  <ArrowRight className="w-4 h-4" />
                 </>
               ) : (
                 <>
@@ -279,7 +380,7 @@ export function HeroBidding({
 
         <div className="space-y-0.5 border-x border-gray-800 px-2">
           <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
-            Total Paid Bids
+            Total Live Bids
           </span>
           <span className="text-sm sm:text-lg font-black text-white">
             {totalBids}

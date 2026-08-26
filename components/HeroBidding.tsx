@@ -199,7 +199,7 @@ export function HeroBidding({
                   setUrl(e.target.value);
                   setErrorMessage(null);
                 }}
-                placeholder="https://yourwebsite.com"
+                placeholder="Your product URL or @handle"
                 disabled={loading}
                 className="w-full pl-10 pr-3 py-3 bg-gray-900/90 border border-gray-800 rounded-xl text-white placeholder-gray-500 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all disabled:opacity-50"
               />

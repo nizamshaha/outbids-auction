@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import { HeroBidding } from '@/components/HeroBidding';
 import { Leaderboard } from '@/components/Leaderboard';
+import { CategorySidebar } from '@/components/CategorySidebar';
 import { RulesGrid } from '@/components/RulesGrid';
 import { Footer } from '@/components/Footer';
 import { CheckCircle2, XCircle } from 'lucide-react';
@@ -14,6 +15,8 @@ function MainContent() {
   const searchParams = useSearchParams();
   const [isConnected, setIsConnected] = useState(false);
   const [selectedBidAmount, setSelectedBidAmount] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({
     count: 0,
     highest: 0,
@@ -29,6 +32,13 @@ function MainContent() {
   const handleStatsUpdate = useCallback(
     (newStats: { count: number; highest: number; totalVolume: number }) => {
       setStats(newStats);
+    },
+    []
+  );
+
+  const handleCategoryCounts = useCallback(
+    (counts: Record<string, number>) => {
+      setCategoryCounts(counts);
     },
     []
   );
@@ -96,8 +106,8 @@ function MainContent() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 max-w-4xl flex-1 flex flex-col items-center">
-        {/* 1. Hero & Dynamic Bidding Header + 2. Real-Time Metrics Bar */}
+      <main className="container mx-auto px-4 max-w-6xl flex-1 flex flex-col items-center pb-16">
+        {/* 1. Hero & Dynamic Bidding Header + Real-Time Metrics Bar */}
         <HeroBidding
           isConnected={isConnected}
           highestBidCents={stats.highest}
@@ -106,20 +116,34 @@ function MainContent() {
           selectedAmountDollars={selectedBidAmount}
         />
 
-        {/* 3. Top 3 Podium Cards + 4. Dense Live Rankings List (#4+) */}
-        <div className="w-full">
-          <Leaderboard
-            onStatsUpdate={handleStatsUpdate}
-            onConnectionChange={handleConnectionChange}
-            onSelectBidAmount={handleSelectBidAmount}
+        {/* 2. Main Two-Column Layout (Left Category Sidebar + Right Leaderboard) */}
+        <div className="w-full flex flex-col lg:flex-row gap-8 items-start mt-8">
+          {/* Left Category Sidebar (Desktop Pinned Aside + Mobile Rail) */}
+          <CategorySidebar
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            categoryCounts={categoryCounts}
+            totalCount={stats.count}
           />
-        </div>
 
-        {/* 5. "Simple Rules" 6-Card Grid */}
-        <RulesGrid />
+          {/* Right Main Leaderboard Stream & Rules */}
+          <div className="flex-1 min-w-0 w-full space-y-12">
+            <Leaderboard
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              onStatsUpdate={handleStatsUpdate}
+              onConnectionChange={handleConnectionChange}
+              onSelectBidAmount={handleSelectBidAmount}
+              onCategoryCountsCalculated={handleCategoryCounts}
+            />
+
+            {/* "Simple Rules" 6-Card Grid */}
+            <RulesGrid />
+          </div>
+        </div>
       </main>
 
-      {/* 6. Legal & Compliance Footer */}
+      {/* 3. Legal & Compliance Footer */}
       <Footer />
     </div>
   );

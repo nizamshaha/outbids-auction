@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { Bid, PLATFORM_CATEGORIES } from '@/types/bid';
+import { Bid } from '@/types/bid';
 import { supabase } from '@/utils/supabase/client';
-import { TopPodium } from './TopPodium';
 import { LeaderboardCard } from './LeaderboardCard';
 import { MidnightCountdown } from './MidnightCountdown';
 import { getWatchlist, saveRankSnapshot } from '@/utils/watchlist';
@@ -12,23 +11,28 @@ import confetti from 'canvas-confetti';
 
 interface LeaderboardProps {
   initialBids?: Bid[];
+  selectedCategory?: string;
+  onSelectCategory?: (category: string) => void;
   onStatsUpdate?: (stats: { count: number; highest: number; totalVolume: number }) => void;
   onConnectionChange?: (connected: boolean) => void;
   onSelectBidAmount?: (amountDollars: number) => void;
   onSelectBidForTopUp?: (bid: Bid) => void;
+  onCategoryCountsCalculated?: (counts: Record<string, number>, total: number) => void;
 }
 
-type TemporalTab = 'all' | 'today' | 'week' | 'latest' | 'watchlist' | 'free';
+export type TemporalTab = 'all' | 'today' | 'week' | 'latest' | 'watchlist' | 'free';
 
-const ALL_CATEGORIES = ['All', ...PLATFORM_CATEGORIES];
 const ITEMS_PER_PAGE = 10;
 
 export function Leaderboard({
   initialBids = [],
+  selectedCategory = 'All',
+  onSelectCategory,
   onStatsUpdate,
   onConnectionChange,
   onSelectBidAmount,
   onSelectBidForTopUp,
+  onCategoryCountsCalculated,
 }: LeaderboardProps) {
   const [bids, setBids] = useState<Bid[]>(initialBids);
   const [loading, setLoading] = useState(initialBids.length === 0);
@@ -36,18 +40,19 @@ export function Leaderboard({
 
   // Filter & Section State
   const [activeTab, setActiveTab] = useState<TemporalTab>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [watchlistVersion, setWatchlistVersion] = useState(0);
 
   const onStatsUpdateRef = useRef(onStatsUpdate);
   const onConnectionChangeRef = useRef(onConnectionChange);
+  const onCategoryCountsRef = useRef(onCategoryCountsCalculated);
 
   useEffect(() => {
     onStatsUpdateRef.current = onStatsUpdate;
     onConnectionChangeRef.current = onConnectionChange;
-  }, [onStatsUpdate, onConnectionChange]);
+    onCategoryCountsRef.current = onCategoryCountsCalculated;
+  }, [onStatsUpdate, onConnectionChange, onCategoryCountsCalculated]);
 
   // Helper to sort bids by amount DESC, then created_at ASC
   const sortRankBids = useCallback((bidList: Bid[]) => {
@@ -67,6 +72,14 @@ export function Leaderboard({
       const highest = currentBids.length > 0 ? currentBids[0].amount : 0;
       const totalVolume = currentBids.reduce((acc, b) => acc + b.amount, 0);
       onStatsUpdateRef.current({ count, highest, totalVolume });
+
+      // Calculate category counts
+      const counts: Record<string, number> = {};
+      currentBids.forEach((b) => {
+        const cat = (b.category || 'Other').toLowerCase();
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+      onCategoryCountsRef.current?.(counts, count);
 
       // Save rank snapshots for rank movement delta calculation
       const snapshot = currentBids.map((b, idx) => ({ id: b.id, rank: idx + 1 }));
@@ -198,7 +211,6 @@ export function Leaderboard({
   // Filtered & Sorted Bids based on Temporal Tab, Category, and Search
   const filteredBids = useMemo(() => {
     let result = [...bids];
-
     const now = new Date();
 
     // 1. Temporal & View Tab Filter
@@ -246,28 +258,14 @@ export function Leaderboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bids, activeTab, selectedCategory, searchQuery, watchlistVersion]);
 
-  // Determine if Top 3 Podium is displayed
-  const isPodiumVisible =
-    activeTab === 'all' && !searchQuery && selectedCategory === 'All';
-
-  const listItems = isPodiumVisible ? filteredBids.slice(3) : filteredBids;
-  const paginatedItems = listItems.slice(0, visibleCount);
+  const paginatedItems = filteredBids.slice(0, visibleCount);
 
   return (
     <div className="w-full">
-      {/* Top 3 Podium (Displayed for overall rankings) */}
-      {isPodiumVisible && (
-        <TopPodium
-          topBids={bids.slice(0, 3)}
-          onSelectBidAmount={onSelectBidAmount}
-          onWatchlistChanged={handleWatchlistChanged}
-        />
-      )}
-
-      {/* --- LEADERBOARD CONTROLS & SECTIONS --- */}
-      <div className="w-full mt-10 mb-6 space-y-4">
+      {/* --- LEADERBOARD CONTROLS & TEMPORAL TABS --- */}
+      <div className="w-full mb-6 space-y-4">
         {/* Temporal Tabs + Midnight Countdown Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3 border-b border-gray-800">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-gray-800">
           {/* Tabs */}
           <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-950/80 border border-gray-800 text-xs font-bold overflow-x-auto scrollbar-none">
             <button
@@ -277,7 +275,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
+                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20 font-black'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -292,7 +290,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'today'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
+                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20 font-black'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -307,7 +305,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'week'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
+                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20 font-black'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -322,7 +320,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'latest'
-                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20'
+                  ? 'bg-orange-500 text-black shadow-md shadow-orange-500/20 font-black'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -337,7 +335,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'watchlist'
-                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                  ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-black'
                   : 'text-amber-400 hover:text-amber-300'
               }`}
             >
@@ -352,7 +350,7 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'free'
-                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                  ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20 font-black'
                   : 'text-emerald-400 hover:text-emerald-300'
               }`}
             >
@@ -365,7 +363,7 @@ export function Leaderboard({
           <div className="flex items-center gap-2.5">
             {activeTab === 'today' && <MidnightCountdown />}
 
-            <div className="relative w-full sm:w-60">
+            <div className="relative w-full sm:w-56">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
                 <Search className="w-3.5 h-3.5" />
               </div>
@@ -376,31 +374,11 @@ export function Leaderboard({
                   setSearchQuery(e.target.value);
                   setVisibleCount(ITEMS_PER_PAGE);
                 }}
-                placeholder="Search website, title, tags..."
-                className="w-full pl-8 pr-3 py-2 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all"
+                placeholder="Search listings..."
+                className="w-full pl-8 pr-3 py-1.5 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all"
               />
             </div>
           </div>
-        </div>
-
-        {/* 28 Categories Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none text-xs">
-          {ALL_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                setSelectedCategory(cat);
-                setVisibleCount(ITEMS_PER_PAGE);
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-gray-200 text-black'
-                  : 'bg-gray-900/90 text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -408,7 +386,7 @@ export function Leaderboard({
       {loading && bids.length === 0 && (
         <div className="space-y-3 my-6">
           {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className="h-20 rounded-2xl glass-card animate-pulse p-4" />
+            <div key={n} className="h-24 rounded-2xl glass-card animate-pulse p-4" />
           ))}
         </div>
       )}
@@ -446,18 +424,18 @@ export function Leaderboard({
         </div>
       )}
 
-      {/* Rich Rankings List */}
-      <div className="space-y-3 my-4">
+      {/* Rich Rankings List with Elevated Podium & Highlighted #1 */}
+      <div className="space-y-3.5 my-4">
         {paginatedItems.map((bid, index) => {
-          const rank = isPodiumVisible ? index + 4 : index + 1;
-          const showTop10Divider = isPodiumVisible && rank === 11;
+          const rank = index + 1;
+          const showTop10Divider = rank === 11;
 
           return (
             <React.Fragment key={bid.id}>
               {showTop10Divider && (
                 <div className="flex items-center gap-3 py-3 my-2">
                   <div className="h-px bg-gray-850 flex-1" />
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-orange-400/80 px-2 flex items-center gap-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-orange-400/80 px-2 flex items-center gap-1.5">
                     <Trophy className="w-3 h-3 text-orange-400" />
                     Top 10 Spotlight Ends • Next Contenders
                   </span>
@@ -477,13 +455,13 @@ export function Leaderboard({
       </div>
 
       {/* Pagination / Load More Button */}
-      {listItems.length > visibleCount && (
+      {filteredBids.length > visibleCount && (
         <div className="text-center pt-6 pb-2">
           <button
             onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
             className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-200 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-lg"
           >
-            <span>Load More Placements ({listItems.length - visibleCount} remaining)</span>
+            <span>Load More Placements ({filteredBids.length - visibleCount} remaining)</span>
           </button>
         </div>
       )}

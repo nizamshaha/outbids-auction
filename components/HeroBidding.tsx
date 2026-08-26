@@ -185,7 +185,7 @@ export function HeroBidding({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             {/* Website URL Input */}
             <div className="sm:col-span-6 relative">
@@ -232,7 +232,7 @@ export function HeroBidding({
               </div>
               <input
                 type="number"
-                min={isFreeMode ? 0 : MIN_BID_DOLLARS}
+                min="0"
                 step="1"
                 value={amount}
                 onChange={(e) => {

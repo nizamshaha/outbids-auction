@@ -121,7 +121,7 @@ export function BidForm({ highestBidCents }: BidFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form noValidate onSubmit={handleSubmit} className="space-y-5">
         {/* URL Input */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-gray-300 mb-2">
@@ -181,7 +181,7 @@ export function BidForm({ highestBidCents }: BidFormProps) {
             </div>
             <input
               type="number"
-              min={MIN_BID_DOLLARS}
+              min="0"
               step="1"
               value={amount}
               onChange={(e) => {

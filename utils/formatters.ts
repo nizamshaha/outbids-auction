@@ -12,13 +12,38 @@ export function formatCentsToDollars(cents: number): string {
 }
 
 /**
- * Normalizes and validates a URL string.
+ * Normalizes and validates a URL string or social @handle.
+ * Automatically converts @handle to https://x.com/handle.
  * Automatically prefixes with https:// if no protocol is given.
  */
-export function sanitizeAndNormalizeUrl(rawUrl: string): { isValid: boolean; normalizedUrl: string; displayDomain: string; error?: string } {
+export function sanitizeAndNormalizeUrl(rawUrl: string): {
+  isValid: boolean;
+  normalizedUrl: string;
+  displayDomain: string;
+  error?: string;
+} {
   let url = rawUrl.trim();
   if (!url) {
-    return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'URL is required.' };
+    return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'URL or @handle is required.' };
+  }
+
+  // Handle social @handle (e.g., @username -> https://x.com/username)
+  if (url.startsWith('@')) {
+    const handle = url.replace(/^@+/, '').trim();
+    if (!handle || !/^[a-zA-Z0-9_]{1,50}$/.test(handle)) {
+      return {
+        isValid: false,
+        normalizedUrl: '',
+        displayDomain: '',
+        error: 'Invalid handle. Handles should contain only letters, numbers, and underscores.',
+      };
+    }
+
+    return {
+      isValid: true,
+      normalizedUrl: `https://x.com/${handle}`,
+      displayDomain: `@${handle}`,
+    };
   }
 
   // Prepend https:// if protocol is missing
@@ -35,7 +60,7 @@ export function sanitizeAndNormalizeUrl(rawUrl: string): { isValid: boolean; nor
     const hostname = parsed.hostname;
     // Check if hostname has a valid dot (e.g. domain.com)
     if (!hostname.includes('.') || hostname.endsWith('.')) {
-      return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'Please enter a valid domain name (e.g. example.com).' };
+      return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'Please enter a valid domain name or @handle.' };
     }
 
     // Clean display domain (strip www.)

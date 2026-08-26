@@ -2,6 +2,10 @@ export type BidStatus = 'pending' | 'paid' | 'failed';
 
 export const PLATFORM_CATEGORIES = [
   'AI',
+  'Content Creators',
+  'Social Media Profiles',
+  'VTubers & Avatars',
+  'Digital Art & Cosplay',
   'Productivity',
   'SEO',
   'DevTools',

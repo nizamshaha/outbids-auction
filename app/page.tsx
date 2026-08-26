@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Navbar } from '@/components/Navbar';
+import { Header } from '@/components/Header';
 import { HeroBidding } from '@/components/HeroBidding';
 import { Leaderboard } from '@/components/Leaderboard';
 import { CategorySidebar } from '@/components/CategorySidebar';
@@ -30,8 +30,12 @@ function MainContent() {
 
   // Stable handlers to prevent component re-render loops
   const handleStatsUpdate = useCallback(
-    (newStats: { count: number; highest: number; totalVolume: number }) => {
-      setStats(newStats);
+    (highestBidCents: number, totalBids: number, totalVolumeCents: number) => {
+      setStats({
+        count: totalBids,
+        highest: highestBidCents,
+        totalVolume: totalVolumeCents,
+      });
     },
     []
   );
@@ -49,7 +53,6 @@ function MainContent() {
 
   const handleSelectBidAmount = useCallback((amountDollars: number) => {
     setSelectedBidAmount(amountDollars);
-    // Smooth scroll to top form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -60,7 +63,7 @@ function MainContent() {
     if (isSuccess) {
       setNotification({
         type: 'success',
-        message: '🎉 Payment Successful! Your bid is now live and broadcasted to the leaderboard.',
+        message: '🎉 Payment Successful! Your listing is now live on the OutBids attention market.',
       });
       try {
         confetti({
@@ -78,23 +81,28 @@ function MainContent() {
   }, [searchParams]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#08090d] text-gray-100 selection:bg-orange-500 selection:text-white">
-      {/* Navigation Header */}
-      <Navbar />
+    <div className="flex flex-col min-h-screen bg-background text-on-surface selection:bg-primary selection:text-white">
+      {/* 1. Sahara Sticky Editorial Header */}
+      <Header
+        isConnected={isConnected}
+        totalBids={stats.count}
+        highestBidCents={stats.highest}
+        totalVolumeCents={stats.totalVolume}
+      />
 
       {/* Banner for Checkout results */}
       {notification && (
         <div
           className={`w-full py-3 px-4 text-center text-sm font-semibold flex items-center justify-center gap-2 border-b animate-in slide-in-from-top duration-300 ${
             notification.type === 'success'
-              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-              : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+              ? 'bg-surface-container-highest text-emerald-800 border-emerald-500/40'
+              : 'bg-surface-container-highest text-amber-900 border-amber-500/40'
           }`}
         >
           {notification.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           ) : (
-            <XCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <XCircle className="w-4 h-4 text-amber-600 shrink-0" />
           )}
           <span>{notification.message}</span>
           <button
@@ -106,19 +114,19 @@ function MainContent() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 max-w-6xl flex-1 flex flex-col items-center pb-16">
-        {/* 1. Hero & Dynamic Bidding Header + Real-Time Metrics Bar */}
-        <HeroBidding
-          isConnected={isConnected}
-          highestBidCents={stats.highest}
-          totalBids={stats.count}
-          totalVolumeCents={stats.totalVolume}
-          selectedAmountDollars={selectedBidAmount}
-        />
+      {/* 2. Sahara Full-Width Hero Section */}
+      <HeroBidding
+        isConnected={isConnected}
+        highestBidCents={stats.highest}
+        totalBids={stats.count}
+        totalVolumeCents={stats.totalVolume}
+        selectedAmountDollars={selectedBidAmount}
+      />
 
-        {/* 2. Main Two-Column Layout (Left Category Sidebar + Right Leaderboard) */}
-        <div className="w-full flex flex-col lg:flex-row gap-8 items-start mt-8">
-          {/* Left Category Sidebar (Desktop Pinned Aside + Mobile Rail) */}
+      {/* 3. Main Content: 2-Column Grid (Category Sidebar + Leaderboard Stream) */}
+      <main className="flex-1 py-10 md:py-12">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8 xl:gap-12 items-start">
+          {/* Left Category Sidebar */}
           <CategorySidebar
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
@@ -126,24 +134,22 @@ function MainContent() {
             totalCount={stats.count}
           />
 
-          {/* Right Main Leaderboard Stream & Rules */}
-          <div className="flex-1 min-w-0 w-full space-y-12">
+          {/* Right Main Leaderboard Feed */}
+          <div className="flex-1 min-w-0 w-full">
             <Leaderboard
               selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
               onStatsUpdate={handleStatsUpdate}
               onConnectionChange={handleConnectionChange}
               onSelectBidAmount={handleSelectBidAmount}
-              onCategoryCountsCalculated={handleCategoryCounts}
             />
-
-            {/* "Simple Rules" 6-Card Grid */}
-            <RulesGrid />
           </div>
         </div>
       </main>
 
-      {/* 3. Legal & Compliance Footer */}
+      {/* 4. Sahara Editorial Rules Section */}
+      <RulesGrid />
+
+      {/* 5. Sahara Editorial Footer */}
       <Footer />
     </div>
   );
@@ -153,8 +159,8 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm bg-[#08090d]">
-          Loading leaderboard...
+        <div className="min-h-screen flex items-center justify-center text-text-muted text-sm bg-background font-serif">
+          Loading attention market...
         </div>
       }
     >

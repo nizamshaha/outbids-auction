@@ -4,15 +4,15 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://outbids.auction'),
   title: {
-    default: 'Outbids.auction | Real-Time Digital Billboard Leaderboard',
+    default: 'Outbids.auction | Public Attention Market - Sahara Edition',
     template: '%s | Outbids.auction',
   },
   description:
-    'Outbid the competition to broadcast your website link live on the global digital billboard. Real-time WebSocket rankings with instant PayPal checkout.',
+    'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
   keywords: [
     'digital billboard',
     'bidding leaderboard',
-    'real-time auction',
+    'attention market',
     'website promotion',
     'outbid',
     'live ranking',
@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Outbids.auction | Real-Time Digital Billboard Leaderboard',
+    title: 'Outbids.auction | Public Attention Market',
     description:
-      'Outbid the competition to broadcast your website link live on the global digital billboard. Real-time WebSocket rankings with instant PayPal checkout.',
+      'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
     url: 'https://outbids.auction',
     siteName: 'Outbids.auction',
     locale: 'en_US',
@@ -43,15 +43,15 @@ export const metadata: Metadata = {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'Outbids.auction - Real-Time Digital Billboard Leaderboard',
+        alt: 'Outbids.auction - Public Attention Market',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Outbids.auction | Real-Time Digital Billboard Leaderboard',
+    title: 'Outbids.auction | Public Attention Market',
     description:
-      'Outbid the competition to broadcast your website link live on the global digital billboard.',
+      'New spots start at $1. Outbid the competition to broadcast your website link live on the global attention market leaderboard.',
     images: ['/opengraph-image'],
   },
   robots: {
@@ -66,9 +66,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#08090d] text-gray-100 min-h-screen antialiased selection:bg-orange-500 selection:text-white">
-        <div className="fixed inset-0 bg-radial-glow pointer-events-none z-0" />
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-background text-on-surface min-h-screen antialiased selection:bg-primary selection:text-white font-sans">
         <main className="relative z-10">{children}</main>
       </body>
     </html>

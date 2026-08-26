@@ -1,0 +1,522 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>OutBids.auction - public attention market</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Eb+Garamond:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "primary-fixed": "#fbe8d8",
+                "inverse-on-surface": "#faf5ee",
+                "tertiary": "#8c3c3c",
+                "on-secondary": "#ffffff",
+                "secondary-container": "#eae2da",
+                "inverse-surface": "#3a302a",
+                "surface-container-low": "#f6f0e8",
+                "tertiary-container": "#d47070",
+                "on-tertiary-fixed": "#2e1515",
+                "primary-container": "#e08850",
+                "tertiary-fixed-dim": "#e8a0a0",
+                "on-tertiary-container": "#3a2020",
+                "surface-bright": "#faf5ee",
+                "on-tertiary-fixed-variant": "#6e3030",
+                "secondary-fixed": "#eae2da",
+                "on-primary": "#ffffff",
+                "on-primary-fixed": "#401a08",
+                "secondary": "#78706a",
+                "surface-variant": "#ece6dc",
+                "on-tertiary": "#ffffff",
+                "on-background": "#3a302a",
+                "primary": "#c2652a",
+                "on-surface-variant": "#605850",
+                "on-secondary-fixed": "#2a2420",
+                "inverse-primary": "#f0a878",
+                "background": "#faf5ee",
+                "on-surface": "#3a302a",
+                "surface-container-high": "#ece6dc",
+                "error-container": "#fce4e0",
+                "on-secondary-fixed-variant": "#504840",
+                "surface-dim": "#dcd6cc",
+                "surface": "#faf5ee",
+                "outline-variant": "#d8d0c8",
+                "on-error": "#ffffff",
+                "tertiary-fixed": "#fce0e0",
+                "primary-fixed-dim": "#f0a878",
+                "on-error-container": "#7a1a10",
+                "secondary-fixed-dim": "#cec6be",
+                "surface-tint": "#c2652a",
+                "surface-container-highest": "#e6e0d6",
+                "surface-container-lowest": "#ffffff",
+                "surface-container": "#f2ece4",
+                "on-primary-container": "#fbe8d8",
+                "outline": "#9a9088",
+                "on-primary-fixed-variant": "#8a4518",
+                "error": "#c0392b",
+                "on-secondary-container": "#605850",
+                text: {
+                  main: '#3a302a',
+                  muted: '#605850',
+                }
+        },
+        "borderRadius": {
+                "DEFAULT": "0.5rem",
+                "lg": "0.5rem",
+                "xl": "0.5rem",
+                "2xl": "0.5rem",
+                "full": "9999px"
+        },
+        "spacing": {},
+        "fontFamily": {
+                "headline": [
+                        "Eb Garamond"
+                ],
+                "display": [
+                        "Eb Garamond"
+                ],
+                "body": [
+                        "Manrope"
+                ],
+                "label": [
+                        "Manrope"
+                ],
+                sans: ['Manrope', 'sans-serif'],
+                mono: ['Manrope', 'monospace'], // Keep mono for now to avoid huge refactor, but it'll use Manrope
+        },
+        "fontSize": {}
+},
+    },
+  }
+</script>
+<style data-purpose="layout">
+    body {
+      background-color: theme('colors.background');
+      color: theme('colors.text.main');
+      -webkit-font-smoothing: antialiased;
+      font-family: theme('fontFamily.body');
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: theme('fontFamily.headline');
+    }
+    .main-grid {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 3rem;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        display: none;
+      }
+    }
+  </style>
+<style data-purpose="components">
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background-color: theme('colors.surface-container-highest');
+      color: theme('colors.on-surface');
+      border: 1px solid theme('colors.outline-variant');
+    }
+    .rank-number {
+      font-family: theme('fontFamily.display');
+      font-weight: 600;
+      font-size: 1.5rem;
+      width: 3rem;
+      text-align: center;
+    }
+    .price-tag {
+      font-family: theme('fontFamily.body');
+      color: theme('colors.primary');
+      font-weight: 600;
+    }
+    .card-hover:hover {
+      background-color: theme('colors.surface-container');
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-background text-on-surface">
+<!-- BEGIN: MainHeader -->
+<header class="border-b border-outline-variant sticky top-0 bg-surface/90 backdrop-blur-sm z-50">
+<div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between text-sm">
+<div class="flex items-center gap-8">
+<a class="font-bold text-xl flex items-center gap-2 font-display" href="/">
+<span class="text-primary tracking-tight">OutBids.auction</span>
+</a>
+<nav class="hidden md:flex gap-6 text-text-muted">
+<a class="text-text-main font-medium" href="/">All-time</a>
+<a class="hover:text-text-main transition-colors" href="/today">Today</a>
+<a class="hover:text-text-main transition-colors" href="/week">Week</a>
+</nav>
+</div>
+<div class="flex items-center gap-8">
+<div class="hidden sm:flex items-center gap-4 text-xs text-text-muted">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500"></span> 0 online</span>
+<span class="">1,068 verified clicks</span>
+<span class="uppercase tracking-widest text-[10px]">live board</span>
+</div>
+<nav class="flex gap-6 font-medium">
+<a class="hover:text-primary transition-colors" href="/">Leaderboard</a>
+<a class="hover:text-primary transition-colors" href="/categories">Categories</a>
+<a class="hover:text-primary transition-colors" href="/about">About</a>
+</nav>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: Hero Section -->
+<section class="py-20 border-b border-outline-variant text-center px-4 bg-surface-container-low">
+<h1 class="text-5xl md:text-6xl font-bold mb-6 font-display text-on-surface">Claim #1 for <span class="text-primary">-$15</span> +</h1>
+<p class="text-text-muted max-w-xl mx-auto mb-10 text-base leading-relaxed">
+      New spots start at $1. Paying less than the #1 price still puts you on the board at whatever place that bid can take.
+    </p>
+<div class="max-w-3xl mx-auto flex flex-col sm:flex-row gap-3 relative z-10">
+<div class="flex-1 relative">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-outline">@</div>
+<input class="w-full pl-10 pr-4 py-4 rounded-xl border border-outline-variant bg-surface focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base text-on-surface placeholder:text-on-surface-variant transition-all shadow-sm" placeholder="Your product URL or @handle" type="text">
+</div>
+<div class="w-full sm:w-56">
+<select class="w-full px-4 py-4 rounded-xl border border-outline-variant bg-surface focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base text-on-surface appearance-none shadow-sm cursor-pointer">
+<option>Choose a category</option>
+<option>SEO &amp; AI Visibility</option>
+<option>AI Agents &amp; Infrastructure</option>
+<option>Other</option>
+</select>
+</div>
+<button class="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-10 py-4 rounded-xl font-semibold text-base transition-colors shadow-sm whitespace-nowrap">
+        Outbid
+      </button>
+</div>
+<div class="mt-6 text-sm text-text-muted flex items-center justify-center gap-6">
+<span class="">Websites, X, Instagram, App Store and Google Play links supported.</span>
+<span class="flex gap-2">
+<span class="px-2 py-1 rounded border border-outline-variant bg-surface text-xs font-medium uppercase tracking-wider">Ad</span>
+<span class="px-2 py-1 rounded border border-outline-variant bg-surface text-xs font-medium uppercase tracking-wider">Free</span>
+<span class="px-2 py-1 rounded border border-outline-variant bg-surface text-xs font-medium uppercase tracking-wider">Paid</span>
+</span>
+</div>
+</section>
+<!-- END: Hero Section -->
+<!-- BEGIN: Main Content -->
+<main class="flex-1 py-12">
+<div class="main-grid">
+<!-- BEGIN: Sidebar / Categories -->
+<aside class="sidebar">
+<div class="sticky top-24 flex flex-col text-sm">
+<div class="flex justify-between items-center mb-6 text-xs font-semibold text-text-muted uppercase tracking-widest">
+<span class="">Categories</span>
+<a class="hover:text-primary transition-colors" href="/categories">View all ↗</a>
+</div>
+<nav class="space-y-1.5">
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-main font-semibold bg-surface-container transition-colors" href="/">
+<span class="flex items-center gap-3"><span class="w-4 text-center text-primary">⊞</span> All</span>
+<span class="text-xs text-text-muted font-medium">— $116</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/seo-ai-visibility">
+<span class="flex items-center gap-3"><span class="w-4 text-center">⌕</span> SEO &amp; AI Visibility</span>
+<span class="text-xs font-medium">— $40</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/other">
+<span class="flex items-center gap-3"><span class="w-4 text-center">✧</span> Other</span>
+<span class="text-xs font-medium">— $33</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/productivity-personal-tools">
+<span class="flex items-center gap-3"><span class="w-4 text-center">⚡</span> Productivity &amp; Personal Tools</span>
+<span class="text-xs font-medium">— $17</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/writing-content">
+<span class="flex items-center gap-3"><span class="w-4 text-center">✎</span> Writing &amp; Content</span>
+<span class="text-xs font-medium">— $11</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/people-profiles">
+<span class="flex items-center gap-3"><span class="w-4 text-center">👤</span> People &amp; Profiles</span>
+<span class="text-xs font-medium">— $8</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/directories-launch-discovery">
+<span class="flex items-center gap-3"><span class="w-4 text-center">🗂️</span> Directories, Launch &amp; Discovery</span>
+<span class="text-xs font-medium">— $3</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/design-creative">
+<span class="flex items-center gap-3"><span class="w-4 text-center">🎨</span> Design &amp; Creative</span>
+<span class="text-xs font-medium">— $1</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/ai-media-generation">
+<span class="flex items-center gap-3"><span class="w-4 text-center">✨</span> AI Media Generation</span>
+<span class="text-xs font-medium">— $0</span>
+</a>
+<a class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-surface-container-high text-text-muted transition-colors" href="/category/ai-agents-infrastructure">
+<span class="flex items-center gap-3"><span class="w-4 text-center">🤖</span> AI Agents &amp; Infrastructure</span>
+<span class="text-xs font-medium">— $0</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- END: Sidebar / Categories -->
+<!-- BEGIN: Leaderboard Feed -->
+<div class="flex flex-col gap-6">
+<!-- Top Ranked Entries -->
+<div class="bg-surface border-2 border-primary/20 rounded-xl p-6 flex gap-5 relative overflow-hidden shadow-sm">
+<div class="absolute inset-0 bg-gradient-to-r from-primary-fixed/30 to-transparent pointer-events-none"></div>
+<div class="rank-number text-primary pt-1 z-10">#1</div>
+<div class="flex-1 z-10">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">T</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Tibly | Get recommended by ChatGPT &amp; Google AI</a></h3></div>
+<span class="text-primary font-semibold text-xl">$14</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed line-clamp-2">Your customers now ask ChatGPT and Google AI what to buy and where to go. Tibly measures how often AI recommends your business and fixes what's missing right on your website — bring the site you have, or build a new one in minutes.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">SEO</span>
+<span class="">Aug 26, 10:17 PM</span>
+<span class="font-semibold text-text-main">35 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-primary/30 transition-all shadow-sm">
+<div class="rank-number text-primary pt-1">#2</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">F</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Folio Dark Muse — Write the book. Not the file.</a></h3></div>
+<span class="text-primary font-semibold text-xl">$12</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">Local-first writing app for novelists. Track threads, plan beats, stop losing subplots. Your manuscript stays as plain Markdown on your disk.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">Other</span>
+<span class="">Aug 26, 6:37 AM</span>
+<span class="font-semibold text-text-main">0 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-primary/30 transition-all shadow-sm">
+<div class="rank-number text-primary pt-1">#3</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">C</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Customer.io: AI-Powered Customer Engagement Platform</a></h3></div>
+<span class="text-primary font-semibold text-xl">$11</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">Customer.io is a customer engagement platform for creating personalized journeys across email, push, SMS, and in-app messaging.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">Writing</span>
+<span class="">Aug 26, 6:33 AM</span>
+<span class="font-semibold text-text-main">0 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<!-- Trending Snippets -->
+<div class="grid grid-cols-2 gap-6 my-6">
+<div class="border border-outline-variant rounded-xl p-5 text-sm flex flex-col gap-3 bg-surface-container-low shadow-sm">
+<div class="flex justify-between items-center text-xs text-text-muted font-semibold uppercase tracking-widest">
+<span class="">Today's top ranking</span>
+<a class="hover:text-primary transition-colors" href="#">See all ↗</a>
+</div>
+<div class="flex items-center gap-3 truncate">
+<span class="font-display font-bold text-primary text-lg">#1</span>
+<span class="truncate flex-1 font-medium text-base">Tibly | Get recommended by Ch...</span>
+<span class="font-semibold text-primary text-base">$14</span>
+</div>
+</div>
+<div class="border border-outline-variant rounded-xl p-5 text-sm flex flex-col gap-3 bg-surface-container-low shadow-sm">
+<div class="flex justify-between items-center text-xs text-text-muted font-semibold uppercase tracking-widest">
+<span class="">Week's top ranking</span>
+<a class="hover:text-primary transition-colors" href="#">See all ↗</a>
+</div>
+<div class="flex items-center gap-3 truncate">
+<span class="font-display font-bold text-primary text-lg">#1</span>
+<span class="truncate flex-1 font-medium text-base">Tibly | Get recommended by Ch...</span>
+<span class="font-semibold text-primary text-base">$14</span>
+</div>
+</div>
+</div>
+<!-- Latest Activity Horizontal Scroll -->
+<div class="border border-outline-variant rounded-xl p-5 mb-6 overflow-hidden relative bg-surface-container-low shadow-sm">
+<div class="flex justify-between items-center text-xs text-text-muted font-semibold uppercase tracking-widest mb-4 px-1">
+<span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Latest activity</span>
+<a class="hover:text-primary transition-colors" href="#">Show more</a>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide text-sm">
+<div class="flex-shrink-0 border border-outline-variant bg-surface rounded-xl p-3 flex items-center gap-3 w-56 shadow-sm">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center font-display font-bold text-text-main">S</div>
+<div class="truncate flex-1">
+<div class="font-semibold truncate">seominer.vercel.app</div>
+<div class="text-text-muted text-xs mt-1 flex justify-between font-medium"><span class="">at #13</span> <span class="text-primary font-semibold">$5</span></div>
+</div>
+</div>
+<div class="flex-shrink-0 border border-outline-variant bg-surface rounded-xl p-3 flex items-center gap-3 w-56 shadow-sm">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center font-display font-bold text-text-main">F</div>
+<div class="truncate flex-1">
+<div class="font-semibold truncate">Folio Dark Muse</div>
+<div class="text-text-muted text-xs mt-1 flex justify-between font-medium"><span class="">at #2</span> <span class="text-primary font-semibold">$12</span></div>
+</div>
+</div>
+<div class="flex-shrink-0 border border-outline-variant bg-surface rounded-xl p-3 flex items-center gap-3 w-56 shadow-sm">
+<div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center font-display font-bold text-text-main">C</div>
+<div class="truncate flex-1">
+<div class="font-semibold truncate">Customer.io</div>
+<div class="text-text-muted text-xs mt-1 flex justify-between font-medium"><span class="">at #3</span> <span class="text-primary font-semibold">$11</span></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Regular Feed Items -->
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-outline transition-all shadow-sm">
+<div class="rank-number text-outline pt-1">#4</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-text-muted">A</div><h3 class="font-bold text-xl font-display"><a class="hover:text-primary transition-colors" href="#">AI GEO Checker</a></h3></div>
+<span class="text-outline font-semibold text-lg">$10</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">Run a free GEO Lite scan and see how clearly AI search agents understand your website.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">SEO</span>
+<span class="">Aug 26, 6:31 AM</span>
+<span class="font-semibold text-text-main">32 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-outline transition-all shadow-sm">
+<div class="rank-number text-outline pt-1">#5</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-text-muted">V</div><h3 class="font-bold text-xl font-display"><a class="hover:text-primary transition-colors" href="#">Voxylio — Real-time video dubbing in your browser</a></h3></div>
+<span class="text-outline font-semibold text-lg">$9</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">A Chrome extension that dubs any subtitled video in real time — into 65+ languages. Local translation, voice synced with playback.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">Productivity</span>
+<span class="">Aug 25, 10:56 AM</span>
+<span class="font-semibold text-text-main">38 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<!-- Section Divider -->
+<div class="flex items-center justify-center my-8 relative">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-outline-variant"></div>
+</div>
+<div class="relative bg-background px-6 text-xs font-semibold text-text-muted uppercase tracking-widest">Top 10</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-outline transition-all shadow-sm">
+<div class="rank-number text-outline pt-1">#11</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-text-muted">Y</div><h3 class="font-bold text-xl font-display"><a class="hover:text-primary transition-colors" href="#">You were invited to start investing by your friend</a></h3></div>
+<span class="text-outline font-semibold text-lg">$6</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">Your €75 Bonus is waiting. To claim your bonus simply follow these steps:</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">Other</span>
+<span class="">Aug 25, 6:01 AM</span>
+<span class="font-semibold text-text-main">9 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-6 flex gap-5 hover:border-outline transition-all shadow-sm">
+<div class="rank-number text-outline pt-1">#18</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-text-muted">A</div><h3 class="font-bold text-xl font-display"><a class="hover:text-primary transition-colors" href="#">AI Employee for Solo Founders and Small Teams | Construct</a></h3></div>
+<span class="text-outline font-semibold text-lg">FREE</span>
+</div>
+<p class="text-base text-text-muted mb-4 leading-relaxed">AI employee for startups, small businesses, and solo founders. Own cloud computer, your tools connected, work that finishes while you are away.</p>
+<div class="flex items-center gap-4 text-sm text-text-muted">
+<span class="badge">Agents</span>
+<span class="">Aug 23, 12:55 PM</span>
+<span class="font-semibold text-text-main">25 clicks</span>
+<a class="hover:text-primary font-medium transition-colors" href="#">see details</a>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="flex justify-between items-center mt-12 pt-6 border-t border-outline-variant text-sm font-semibold text-text-muted">
+<span class="">1–50 of 90</span>
+<div class="flex gap-6 items-center">
+<span class="">Page 1 / 2</span>
+<a class="hover:text-primary transition-colors flex items-center gap-1" href="#">Next →</a>
+</div>
+<button class="hover:text-primary transition-colors flex items-center gap-1">Refresh ↻</button>
+</div>
+</div>
+<!-- END: Leaderboard Feed -->
+</div>
+</main>
+<!-- END: Main Content -->
+<!-- BEGIN: Rules Section -->
+<section class="bg-surface-container border-y border-outline-variant py-20 px-4">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row gap-16">
+<div class="md:w-1/3">
+<div class="text-xs font-semibold text-primary uppercase tracking-widest mb-6">Rules / How it works</div>
+<h2 class="text-5xl font-bold mb-4 font-display">Simple rules.</h2>
+<h2 class="text-5xl font-bold text-primary mb-8 font-display">Visible outcomes.</h2>
+<p class="text-text-muted mb-10 text-lg leading-relaxed">Every verified bid buys a public position, not a promise of permanent #1.</p>
+<div class="text-xs font-semibold text-text-muted uppercase tracking-widest">01-06 · CLEAR BY DESIGN</div>
+</div>
+<div class="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="bg-surface p-8 rounded-xl border border-outline-variant shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary-fixed-dim flex items-center justify-center font-display text-lg font-bold mb-6 border border-primary/20">01</div>
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">F</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Folio Dark Muse — Write the book. Not the file.</a></h3></div>
+<p class="text-base text-text-muted leading-relaxed">New listings start at the configured minimum; a higher bid ranks above lower bids, while equal bids keep the earlier verified position.</p>
+</div>
+<div class="bg-surface p-8 rounded-xl border border-outline-variant shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary-fixed-dim flex items-center justify-center font-display text-lg font-bold mb-6 border border-primary/20">02</div>
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">F</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Folio Dark Muse — Write the book. Not the file.</a></h3></div>
+<p class="text-base text-text-muted leading-relaxed">Paid listings require signed provider confirmation; free listings publish immediately after validation.</p>
+</div>
+<div class="bg-surface p-8 rounded-xl border border-outline-variant shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary-fixed-dim flex items-center justify-center font-display text-lg font-bold mb-6 border border-primary/20">03</div>
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">F</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Folio Dark Muse — Write the book. Not the file.</a></h3></div>
+<p class="text-base text-text-muted leading-relaxed">Use the same normalized URL or @handle to raise its total. The requested total must be higher than the current verified amount.</p>
+</div>
+<div class="bg-surface p-8 rounded-xl border border-outline-variant shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary-fixed-dim flex items-center justify-center font-display text-lg font-bold mb-6 border border-primary/20">04</div>
+<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0 border border-outline-variant font-display font-bold text-primary">F</div><h3 class="font-bold text-2xl font-display"><a class="hover:text-primary transition-colors" href="#">Folio Dark Muse — Write the book. Not the file.</a></h3></div>
+<p class="text-base text-text-muted leading-relaxed">Tracked outbound redirects count one anonymous visitor per listing per board day, so refreshes do not inflate clicks.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Rules Section -->
+<!-- BEGIN: Footer -->
+<footer class="py-16 px-4 bg-background">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-12">
+<div class="max-w-md">
+<div class="text-xs font-semibold text-text-muted uppercase tracking-widest mb-6">About OutBids.auction</div>
+<h2 class="text-3xl font-bold mb-6 font-display">An attention market for the internet.</h2>
+</div>
+<div class="max-w-md text-base text-text-muted leading-relaxed">
+<p class="">Builders compete with money, not an opaque feed. We fetch public metadata automatically, show the verified amount and clicks, and keep the rules legible for everyone.</p>
+</div>
+</div>
+<div class="max-w-7xl mx-auto mt-20 pt-8 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center text-xs text-text-muted font-semibold uppercase tracking-wider gap-6">
+<div class="">OUTBIDS.AUCTION / PUBLIC ATTENTION MARKET</div>
+<div class="flex gap-4">
+<span class="">Built for the next great launch</span>
+<span class="">·</span>
+<a class="hover:text-primary transition-colors" href="#">Rules</a>
+<a class="hover:text-primary transition-colors" href="#">Terms</a>
+<a class="hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="hover:text-primary transition-colors" href="#">Contact</a>
+<a class="hover:text-primary transition-colors" href="#">@naxisty</a>
+</div>
+</div>
+</footer>
+<!-- END: Footer -->
+
+
+</body></html>

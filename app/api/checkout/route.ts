@@ -1,315 +1,233 @@
 import { NextRequest, NextResponse } from 'next/server';
-import DodoPayments from 'dodopayments';
-import { createAdminClient, supabaseAdmin } from '@/utils/supabase/admin';
+import { CreateCheckoutPayload, CheckoutResponse } from '@/types/bid';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
-import { createPayPalOrder } from '@/utils/paypal';
 import { scrapeUrlMetadata } from '@/utils/metadata';
 
-const MINIMUM_PAID_BID_CENTS = 500; // Minimum $5.00 for paid bids
+export const dynamic = 'force-dynamic';
 
-async function insertBidSafely(dbClient: any, payload: {
-  url: string;
-  amount: number;
-  status: string;
-  category: string;
-  title: string | null;
-  description: string | null;
-  icon_url: string | null;
-}) {
-  // First attempt: insert with all rich schema columns
-  const firstAttempt = await dbClient
-    .from('bids')
-    .insert({
-      url: payload.url,
-      amount: payload.amount,
-      status: payload.status,
-      category: payload.category,
-      title: payload.title,
-      description: payload.description,
-      icon_url: payload.icon_url,
-      click_count: 0,
-      view_count: 0,
-    })
-    .select('id')
-    .single();
-
-  if (!firstAttempt.error && firstAttempt.data) {
-    return { data: firstAttempt.data, error: null };
-  }
-
-  // Fallback: If category or rich columns are not in schema cache, insert core columns
-  console.warn('[Supabase Insert Fallback] Retrying with core schema columns:', firstAttempt.error?.message);
-  const fallbackAttempt = await dbClient
-    .from('bids')
-    .insert({
-      url: payload.url,
-      amount: payload.amount,
-      status: payload.status,
-      title: payload.title,
-      description: payload.description,
-    })
-    .select('id')
-    .single();
-
-  return fallbackAttempt;
+function getDodoBaseUrl(): string {
+  const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'live_mode';
+  return env === 'live_mode'
+    ? 'https://live.dodopayments.com'
+    : 'https://test.dodopayments.com';
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { url, amount, amountInDollars, category, title, description, isFreeTier } = body;
+    const body: CreateCheckoutPayload = await req.json();
+    const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false } = body;
 
-    // Validate and sanitize URL
+    // 1. Validate URL or @handle
     if (!url || typeof url !== 'string') {
-      return NextResponse.json(
-        { error: 'Website URL is required.' },
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'A valid website URL or @handle is required.' },
         { status: 400 }
       );
     }
 
-    const urlCheck = sanitizeAndNormalizeUrl(url);
-    if (!urlCheck.isValid) {
-      return NextResponse.json(
-        { error: urlCheck.error || 'Invalid URL provided.' },
+    const { isValid, normalizedUrl, displayDomain, error: urlError } = sanitizeAndNormalizeUrl(url);
+    if (!isValid) {
+      return NextResponse.json<CheckoutResponse>(
+        { error: urlError || 'Invalid URL or @handle.' },
         { status: 400 }
       );
     }
 
-    const normalizedUrl = urlCheck.normalizedUrl;
-    const displayDomain = urlCheck.displayDomain;
-    const selectedCategory = category || 'Other';
-
-    // Normalize amount to cents
-    let amountCents: number = 0;
-    if (typeof amount === 'number') {
-      amountCents = amount >= 100 && Number.isInteger(amount) ? amount : Math.round(amount * 100);
-    } else if (typeof amountInDollars === 'number') {
-      amountCents = Math.round(amountInDollars * 100);
-    }
-
-    const dbClient = createAdminClient ? createAdminClient() : supabaseAdmin;
-
-    // Scrape Rich Metadata (Title, Description, Favicon)
+    // 2. Scrape metadata if title / description were not provided
     const scraped = await scrapeUrlMetadata(normalizedUrl);
-    const finalTitle = title || scraped.title || displayDomain;
-    const finalDescription = description || scraped.description;
-    const finalIconUrl = scraped.iconUrl;
+    const finalTitle = title?.trim() || scraped.title || displayDomain;
+    const finalDescription = description?.trim() || scraped.description || null;
+    const finalIconUrl = scraped.iconUrl || null;
+
+    const supabase = createAdminClient();
+
+    // 3. Check for existing listing (Top-Up logic)
+    const { data: existingBid } = await supabase
+      .from('bids')
+      .select('id, amount, status')
+      .eq('url', normalizedUrl)
+      .limit(1)
+      .maybeSingle();
+
+    const existingAmountCents = existingBid ? existingBid.amount : 0;
+    const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
 
     // -------------------------------------------------------------
-    // 1. FREE TIER LOGIC ($0 Bids)
+    // A. FREEMIUM / FREE TIER ($0) SUBMISSION
     // -------------------------------------------------------------
-    if (isFreeTier || amountCents === 0) {
-      console.log(`[Checkout] Processing Free Tier entry for: ${normalizedUrl}`);
-
-      // Check if URL already exists
-      const { data: existingFree } = await dbClient
-        .from('bids')
-        .select('id, amount')
-        .eq('url', normalizedUrl)
-        .eq('status', 'paid')
-        .limit(1)
-        .maybeSingle();
-
-      if (existingFree) {
-        return NextResponse.json(
-          { error: 'This URL is already listed on the leaderboard! Use Outbid to top-up and boost its rank.' },
+    if (isFreeSubmission) {
+      if (existingBid) {
+        return NextResponse.json<CheckoutResponse>(
+          { error: `${displayDomain} is already listed on the leaderboard! Enter a bid amount to upgrade its rank.` },
           { status: 400 }
         );
       }
 
-      const { data: freeBid, error: freeError } = await insertBidSafely(dbClient, {
-        url: normalizedUrl,
-        amount: 0,
-        status: 'paid',
-        category: selectedCategory,
-        title: finalTitle,
-        description: finalDescription,
-        icon_url: finalIconUrl,
-      });
+      // Direct insertion without payment gateway
+      const { data: inserted, error: insertError } = await supabase
+        .from('bids')
+        .insert({
+          url: normalizedUrl,
+          amount: 0,
+          status: 'paid',
+          category,
+          title: finalTitle,
+          description: finalDescription,
+          icon_url: finalIconUrl,
+          click_count: 0,
+          view_count: 0,
+        })
+        .select()
+        .single();
 
-      if (freeError || !freeBid) {
-        console.error('Error inserting free bid into Supabase:', freeError);
-        return NextResponse.json(
-          { error: `Database error creating free listing: ${freeError?.message}` },
-          { status: 500 }
-        );
+      if (insertError) {
+        // Fallback for core schema
+        const fallback = await supabase
+          .from('bids')
+          .insert({
+            url: normalizedUrl,
+            amount: 0,
+            status: 'paid',
+            title: finalTitle,
+            description: finalDescription,
+          })
+          .select()
+          .single();
+
+        if (fallback.error) throw fallback.error;
+
+        return NextResponse.json<CheckoutResponse>({
+          provider: 'free',
+          bidId: fallback.data.id,
+          totalBidDollars: 0,
+          amountChargedDollars: 0,
+          message: `🎉 Free Tier listing for ${displayDomain} is now live!`,
+        });
       }
 
-      return NextResponse.json({
-        success: true,
+      return NextResponse.json<CheckoutResponse>({
         provider: 'free',
-        bidId: freeBid.id,
-        message: '🎉 Free listing created and broadcasted to the leaderboard!',
+        bidId: inserted.id,
+        totalBidDollars: 0,
+        amountChargedDollars: 0,
+        message: `🎉 Free Tier listing for ${displayDomain} is now live!`,
       });
     }
 
     // -------------------------------------------------------------
-    // 2. PAID BID VALIDATION & TOP-UP DETECTION
+    // B. PAID BIDDING & TOP-UP DIFFERENCE CALCULATION
     // -------------------------------------------------------------
-    if (amountCents < MINIMUM_PAID_BID_CENTS) {
-      return NextResponse.json(
-        { error: `Minimum paid bid is $5.00 ($${MINIMUM_PAID_BID_CENTS / 100} USD).` },
+    const targetAmountCents = Math.round(Number(amountInDollars) * 100);
+
+    if (isNaN(targetAmountCents) || targetAmountCents < 100) {
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Minimum bid amount is $1.00.' },
         { status: 400 }
       );
     }
 
-    // Check for existing paid bid to apply Top-Up calculation
-    const { data: existingPaidBid } = await dbClient
-      .from('bids')
-      .select('id, amount, url')
-      .eq('url', normalizedUrl)
-      .eq('status', 'paid')
-      .limit(1)
-      .maybeSingle();
-
-    let chargeAmountCents = amountCents;
+    let chargeAmountCents = targetAmountCents;
     let isTopUp = false;
-    let existingBidId: string | null = null;
 
-    if (existingPaidBid) {
-      const currentPaid = existingPaidBid.amount;
-
-      if (amountCents <= currentPaid) {
-        return NextResponse.json(
+    if (existingBid) {
+      if (targetAmountCents <= existingAmountCents) {
+        return NextResponse.json<CheckoutResponse>(
           {
-            error: `Your URL is currently placed at $${(currentPaid / 100).toFixed(2)}. To top-up and outbid, enter an amount higher than $${(currentPaid / 100).toFixed(2)}.`,
+            error: `Your website is already listed at $${(existingAmountCents / 100).toFixed(
+              2
+            )}. Enter an amount higher than $${(existingAmountCents / 100).toFixed(
+              2
+            )} to outbid and climb the leaderboard!`,
           },
           { status: 400 }
         );
       }
 
-      // Charge only the incremental difference
-      chargeAmountCents = amountCents - currentPaid;
+      // Charge only the delta difference
+      chargeAmountCents = targetAmountCents - existingAmountCents;
       isTopUp = true;
-      existingBidId = existingPaidBid.id;
-      console.log(`[Top-Up Detected] Upgrading ${normalizedUrl} from $${currentPaid / 100} to $${amountCents / 100}. Charging difference: $${chargeAmountCents / 100}`);
     }
 
-    // Insert pending bid record safely
-    const { data: newBid, error: dbError } = await insertBidSafely(dbClient, {
-      url: normalizedUrl,
-      amount: amountCents, // Total target rank amount
-      status: 'pending',
-      category: selectedCategory,
-      title: finalTitle,
-      description: finalDescription,
-      icon_url: finalIconUrl,
-    });
+    // -------------------------------------------------------------
+    // C. DODO PAYMENTS API INTEGRATION
+    // -------------------------------------------------------------
+    const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+    const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_0Nm9Jk0QoBKXJmjXqt2u2';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
 
-    if (dbError || !newBid) {
-      console.error('Error inserting pending bid into Supabase:', dbError);
-      return NextResponse.json(
-        {
-          error: `Database error creating pending bid: ${dbError?.message || 'Failed to insert pending bid'}`,
-        },
+    if (!apiKey) {
+      console.error('[Dodo Payments] DODO_PAYMENTS_API_KEY is not configured in environment.');
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Payment gateway configuration missing. Please contact support.' },
         { status: 500 }
       );
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      req.nextUrl.origin ||
-      'https://outbids.auction';
+    const dodoBaseUrl = getDodoBaseUrl();
 
-    // -------------------------------------------------------------
-    // 3. PAYPAL CHECKOUT INITIALIZATION
-    // -------------------------------------------------------------
-    const paypalClientId =
-      process.env.PAYPAL_CLIENT_ID ||
-      process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ||
-      '';
-    const paypalSecret = process.env.PAYPAL_SECRET || '';
+    // Prepare Dodo Payments Checkout Session Payload
+    const dodoPayload = {
+      billing: {
+        country: 'US',
+      },
+      customer: {
+        email: 'customer@outbids.auction',
+        name: 'Outbids Supporter',
+      },
+      payment_link: true,
+      product_cart: [
+        {
+          product_id: productId,
+          quantity: 1,
+          amount: chargeAmountCents,
+        },
+      ],
+      return_url: `${siteUrl}/?success=true`,
+      metadata: {
+        url: normalizedUrl,
+        category: category || 'Other',
+        bid_amount: targetAmountCents.toString(),
+        is_topup: isTopUp ? 'true' : 'false',
+        existing_bid_id: existingBid?.id || '',
+        title: finalTitle || '',
+        description: finalDescription || '',
+        icon_url: finalIconUrl || '',
+      },
+    };
 
-    if (paypalClientId && paypalSecret) {
-      try {
-        console.log(`[Checkout] Creating PayPal order for bid ${newBid.id} (Charging: $${chargeAmountCents / 100})`);
-        
-        // Pass top-up query params to capture handler
-        const captureUrl = isTopUp
-          ? `${siteUrl}/api/paypal/capture?bid_id=${newBid.id}&top_up_target=${existingBidId}&new_amount=${amountCents}`
-          : `${siteUrl}/api/paypal/capture?bid_id=${newBid.id}`;
+    console.log(`[Dodo Payments] Initiating checkout for ${normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100})`);
 
-        const paypalOrder = await createPayPalOrder({
-          amountInDollars: chargeAmountCents / 100,
-          bidId: newBid.id,
-          returnUrl: captureUrl,
-          cancelUrl: `${siteUrl}/?canceled=true`,
-        });
+    const dodoRes = await fetch(`${dodoBaseUrl}/payments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dodoPayload),
+    });
 
-        return NextResponse.json({
-          url: paypalOrder.approvalUrl,
-          orderId: paypalOrder.orderId,
-          bidId: newBid.id,
-          provider: 'paypal',
-          isTopUp,
-          amountChargedDollars: chargeAmountCents / 100,
-          totalBidDollars: amountCents / 100,
-        });
-      } catch (paypalError: any) {
-        console.error('[Checkout] PayPal order creation error:', paypalError);
-      }
+    const dodoData = await dodoRes.json();
+
+    if (!dodoRes.ok || (!dodoData.payment_link && !dodoData.url)) {
+      console.error('[Dodo Payments API Error]:', dodoData);
+      throw new Error(dodoData.message || dodoData.error || 'Failed to generate Dodo Payments checkout session.');
     }
 
-    // -------------------------------------------------------------
-    // 4. DODO PAYMENTS FALLBACK (IF CONFIGURED)
-    // -------------------------------------------------------------
-    const dodoApiKey = process.env.DODO_PAYMENTS_API_KEY || '';
-    const dodoEnvironment =
-      (process.env.DODO_PAYMENTS_ENVIRONMENT as 'live_mode' | 'test_mode') || 'test_mode';
-    const dodoProductId = process.env.DODO_PAYMENTS_PRODUCT_ID || '';
+    const checkoutUrl = dodoData.payment_link || dodoData.url;
 
-    if (dodoApiKey && dodoProductId) {
-      const dodo = new DodoPayments({
-        bearerToken: dodoApiKey,
-        environment: dodoEnvironment,
-      });
-
-      const payment = await dodo.payments.create({
-        payment_link: true,
-        billing: { country: 'US' },
-        customer: {
-          email: `bidder_${newBid.id.slice(0, 8)}@outbids.auction`,
-          name: `Bidder for ${displayDomain}`,
-        },
-        return_url: `${siteUrl}/?success=true&bid_id=${newBid.id}`,
-        metadata: {
-          bid_id: newBid.id,
-          bid_url: normalizedUrl,
-          is_top_up: isTopUp ? 'true' : 'false',
-        },
-        product_cart: [
-          {
-            product_id: dodoProductId,
-            amount: chargeAmountCents,
-            quantity: 1,
-          },
-        ],
-      });
-
-      const checkoutUrl =
-        payment.payment_link ||
-        (payment as any).payment_link_url ||
-        (payment as any).url;
-
-      if (checkoutUrl) {
-        return NextResponse.json({
-          url: checkoutUrl,
-          bidId: newBid.id,
-          provider: 'dodopayments',
-          isTopUp,
-          amountChargedDollars: chargeAmountCents / 100,
-        });
-      }
-    }
-
-    return NextResponse.json(
-      { error: 'No active payment gateway configured. Please check PayPal credentials.' },
-      { status: 500 }
-    );
+    return NextResponse.json<CheckoutResponse>({
+      url: checkoutUrl,
+      orderId: dodoData.payment_id,
+      provider: 'dodopayments',
+      isTopUp,
+      amountChargedDollars: chargeAmountCents / 100,
+      totalBidDollars: targetAmountCents / 100,
+    });
   } catch (error: any) {
-    console.error('Checkout API Error:', error);
-    return NextResponse.json(
-      { error: error?.message || 'An internal server error occurred during checkout initialization.' },
+    console.error('[Checkout Route Error]:', error);
+    return NextResponse.json<CheckoutResponse>(
+      { error: error?.message || 'An unexpected error occurred during checkout initialization.' },
       { status: 500 }
     );
   }

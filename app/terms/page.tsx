@@ -64,16 +64,16 @@ export default function TermsPage() {
             <h2 className="text-lg font-bold text-white">4. Payments, Bids, and Pricing</h2>
             <ul className="list-disc list-inside space-y-2 text-gray-300 pl-2">
               <li>
-                <strong>Payment Processing:</strong> All payments on Outbids.auction are securely processed via <strong>PayPal</strong>. By placing a bid, you authorize PayPal to charge your selected payment method for the designated bid amount in USD ($).
+                <strong>Payment Processing:</strong> All payments on Outbids.auction are securely processed via <strong>Dodo Payments</strong> (our Merchant of Record). By placing a bid, you authorize Dodo Payments to charge your selected payment method for the designated bid amount in USD ($).
               </li>
               <li>
-                <strong>Immediate Digital Delivery:</strong> Bids represent digital placements on our real-time leaderboard. Service delivery occurs immediately upon successful payment confirmation from PayPal.
+                <strong>Immediate Digital Delivery:</strong> Bids represent digital placements on our real-time leaderboard. Service delivery occurs immediately upon successful payment confirmation from Dodo Payments.
               </li>
               <li>
                 <strong>Non-Refundable Nature:</strong> Due to the real-time, competitive digital billboard format where placements are allocated and broadcasted instantly upon payment confirmation, all completed bids are final and non-refundable once published.
               </li>
               <li>
-                <strong>Pricing & Currency:</strong> All bids and placement costs are denominated and charged in US Dollars (USD). You are responsible for any foreign transaction or currency conversion fees charged by PayPal or your card issuer.
+                <strong>Pricing & Currency:</strong> All bids and placement costs are denominated and charged in US Dollars (USD). You are responsible for any foreign transaction or currency conversion fees charged by your card issuer or payment method.
               </li>
             </ul>
           </section>

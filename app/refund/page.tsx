@@ -41,7 +41,7 @@ export default function RefundPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-white">1. Digital Advertising Service Nature</h2>
             <p>
-              Outbids.auction provides immediate, dynamic digital billboard placements. When your payment is confirmed by <strong>PayPal</strong>:
+              Outbids.auction provides immediate, dynamic digital billboard placements. When your payment is confirmed by <strong>Dodo Payments</strong>:
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
               <li>Your bid is processed in real time.</li>
@@ -65,7 +65,7 @@ export default function RefundPage() {
               If you experience a technical failure where:
             </p>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 pl-2">
-              <li>Your payment was captured and confirmed by PayPal, but</li>
+              <li>Your payment was captured and confirmed by Dodo Payments, but</li>
               <li>Your link failed to appear on the leaderboard due to a system error,</li>
             </ul>
             <p>
@@ -73,7 +73,7 @@ export default function RefundPage() {
               <a href="mailto:support@outbids.auction" className="text-orange-400 font-semibold hover:underline">
                 support@outbids.auction
               </a>{' '}
-              with your <strong>PayPal Transaction ID</strong> and submitted target URL. We will investigate the transaction logs and manually restore your placement or issue a resolution.
+              with your <strong>Payment ID</strong> and submitted target URL. We will investigate the transaction logs and manually restore your placement or issue a resolution.
             </p>
           </section>
         </div>

@@ -54,21 +54,13 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc list-inside space-y-2 text-gray-300 pl-2">
               <li>
-                <strong>PayPal Integration:</strong> When you submit a bid, your transaction is processed directly through <strong>PayPal</strong>.
+                <strong>Dodo Payments Integration:</strong> When you submit a bid, your transaction is processed directly through <strong>Dodo Payments</strong> (our authorized Merchant of Record).
               </li>
               <li>
-                <strong>Data Transferred:</strong> We only transmit the transaction amount, bid identifier, and associated URL metadata to PayPal to generate and confirm the transaction.
+                <strong>Data Transferred:</strong> We only transmit the transaction amount, bid identifier, and associated URL metadata to Dodo Payments to generate and confirm the transaction.
               </li>
               <li>
-                <strong>PayPal Privacy Governance:</strong> Your financial information and payment details are collected and handled directly by PayPal under the{' '}
-                <a
-                  href="https://www.paypal.com/webapps/mpp/ua/privacy-full"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-emerald-400 underline hover:text-emerald-300"
-                >
-                  PayPal Privacy Statement
-                </a>.
+                <strong>Payment Security Governance:</strong> Your payment methods (credit/debit cards, digital wallets) are handled directly by Dodo Payments in compliance with global PCI-DSS standards.
               </li>
             </ul>
           </section>

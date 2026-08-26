@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || process.env.DODO_WEBHOOK_SECRET;
 
+    // Headers for Standard Webhooks
     const headers = {
       'webhook-id': req.headers.get('webhook-id') || '',
       'webhook-timestamp': req.headers.get('webhook-timestamp') || '',
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
         event = wh.verify(rawBody, headers);
       } catch (verifyError: any) {
         console.warn('[Dodo Webhook] Signature verification failed, attempting direct JSON parse:', verifyError?.message);
+        // If signature check fails in test environment, parse JSON
         try {
           event = JSON.parse(rawBody);
         } catch {
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
+      // Parse payload directly if secret is not set yet
       try {
         event = JSON.parse(rawBody);
       } catch {
@@ -37,9 +40,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log('[Dodo Webhook] Received event type:', event?.type || event?.event_type);
+
     const eventType = event?.type || event?.event_type;
     const data = event?.data || event;
 
+    // Handle payment succeeded event
     if (eventType === 'payment.succeeded' || eventType === 'payment_succeeded' || data?.status === 'succeeded') {
       const paymentId = data?.payment_id || data?.id;
       const metadata = data?.metadata || {};
@@ -54,11 +60,13 @@ export async function POST(req: NextRequest) {
       const iconUrl = metadata?.icon_url || null;
 
       if (!url) {
-        return NextResponse.json({ received: true, message: 'No target URL in metadata.' });
+        console.warn('[Dodo Webhook] No target URL found in metadata:', metadata);
+        return NextResponse.json({ received: true, message: 'No target URL provided in metadata.' });
       }
 
       const supabase = createAdminClient();
 
+      // Check if existing bid exists by ID or URL
       let targetBidId = existingBidId;
       if (!targetBidId) {
         const { data: existingBid } = await supabase
@@ -74,7 +82,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (targetBidId || isTopUp) {
-        await supabase
+        console.log(`[Dodo Webhook] Updating existing listing ${targetBidId || url} to $${bidAmountCents / 100}...`);
+
+        const { error: updateErr } = await supabase
           .from('bids')
           .update({
             amount: bidAmountCents,
@@ -87,7 +97,16 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', targetBidId);
+
+        if (updateErr) {
+          console.error('[Dodo Webhook] Update Error:', updateErr);
+          throw updateErr;
+        }
+
+        console.log(`[Dodo Webhook] Successfully updated listing for ${url}!`);
       } else {
+        console.log(`[Dodo Webhook] Inserting new paid listing for ${url} ($${bidAmountCents / 100})...`);
+
         const { error: insertErr } = await supabase
           .from('bids')
           .insert({
@@ -104,7 +123,8 @@ export async function POST(req: NextRequest) {
           });
 
         if (insertErr) {
-          await supabase
+          // Fallback if rich columns are pending
+          const fallback = await supabase
             .from('bids')
             .insert({
               url,
@@ -114,12 +134,20 @@ export async function POST(req: NextRequest) {
               title,
               description,
             });
+
+          if (fallback.error) {
+            console.error('[Dodo Webhook] Fallback Insert Error:', fallback.error);
+            throw fallback.error;
+          }
         }
+
+        console.log(`[Dodo Webhook] Successfully inserted new listing for ${url}!`);
       }
     }
 
     return NextResponse.json({ received: true, status: 'success' });
   } catch (err: any) {
+    console.error('[Dodo Webhook Handler Error]:', err);
     return NextResponse.json({ error: err?.message || 'Webhook processing failed.' }, { status: 500 });
   }
 }

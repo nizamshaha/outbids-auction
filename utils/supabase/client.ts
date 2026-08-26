@@ -1,24 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
 
-const getSupabaseUrl = () =>
+const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
-  'https://placeholder.supabase.co';
+  'https://fmuxahgignhhmnprxxey.supabase.co';
 
-const getSupabaseAnonKey = () =>
+const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
-  'placeholder-anon-key';
+  'sb_publishable_jc3QWKQVFpPvkCMpzjeWJg_CzHUEOpR';
 
 /**
  * Supabase client for browser-side usage (realtime subscriptions, public reads)
  */
 export const createBrowserClient = () => {
-  const url = getSupabaseUrl();
-  const anonKey = getSupabaseAnonKey();
-
-  return createClient<Database>(url, anonKey, {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     realtime: {
       params: {
         eventsPerSecond: 10,

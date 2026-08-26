@@ -57,16 +57,10 @@ export function Header({
           <nav className="flex gap-4 font-semibold text-xs uppercase tracking-wider">
             <a
               href="#rules"
-              className="px-3 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors text-text-muted hover:text-primary"
+              className="px-3.5 py-1.5 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors text-text-muted hover:text-primary"
             >
               How it works
             </a>
-            <Link
-              href="/admin"
-              className="px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-container transition-colors font-bold shadow-sm"
-            >
-              Admin ⚡
-            </Link>
           </nav>
         </div>
       </div>

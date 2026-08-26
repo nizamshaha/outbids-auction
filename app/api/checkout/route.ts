@@ -152,12 +152,12 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     // C. DODO PAYMENTS API INTEGRATION
     // -------------------------------------------------------------
-    const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+    const apiKey = process.env.DODO_SECRET_KEY || process.env.DODO_PAYMENTS_API_KEY;
     const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_0Nm9Jk0QoBKXJmjXqt2u2';
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
 
     if (!apiKey) {
-      console.error('[Dodo Payments] DODO_PAYMENTS_API_KEY is not configured in environment.');
+      console.error('[Dodo Payments] DODO_SECRET_KEY or DODO_PAYMENTS_API_KEY is not configured.');
       return NextResponse.json<CheckoutResponse>(
         { error: 'Payment gateway configuration missing. Please contact support.' },
         { status: 500 }

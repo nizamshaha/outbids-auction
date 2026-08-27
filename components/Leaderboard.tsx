@@ -24,6 +24,12 @@ interface LeaderboardProps {
   onConnectionChange?: (isConnected: boolean) => void;
   onSelectBidAmount?: (amountDollars: number) => void;
   onSelectBidForTopUp?: (bid: Bid) => void;
+  onCategoryMetricsCalculated?: (
+    categoryPools: Record<string, number>,
+    categoryCounts: Record<string, number>,
+    totalPoolDollars: number,
+    totalCount: number
+  ) => void;
   selectedCategory?: string;
 }
 
@@ -75,6 +81,7 @@ export function Leaderboard({
   onConnectionChange,
   onSelectBidAmount,
   onSelectBidForTopUp,
+  onCategoryMetricsCalculated,
   selectedCategory = 'All',
 }: LeaderboardProps) {
   const [bids, setBids] = useState<Bid[]>([]);
@@ -87,10 +94,12 @@ export function Leaderboard({
 
   const onStatsUpdateRef = useRef(onStatsUpdate);
   const onConnectionChangeRef = useRef(onConnectionChange);
+  const onCategoryMetricsRef = useRef(onCategoryMetricsCalculated);
 
   useEffect(() => {
     onStatsUpdateRef.current = onStatsUpdate;
     onConnectionChangeRef.current = onConnectionChange;
+    onCategoryMetricsRef.current = onCategoryMetricsCalculated;
   });
 
   const sortRankBids = useCallback((bidList: Bid[]): Bid[] => {
@@ -98,6 +107,7 @@ export function Leaderboard({
       if (b.amount !== a.amount) {
         return b.amount - a.amount;
       }
+      // Tie-breaker: Earlier timestamp preserves higher rank
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, []);
@@ -109,6 +119,24 @@ export function Leaderboard({
     const totalVolumeCents = paidList.reduce((acc, curr) => acc + curr.amount, 0);
 
     onStatsUpdateRef.current?.(highestBidCents, totalBids, totalVolumeCents);
+
+    // Calculate Category Pool Metrics
+    const pools: Record<string, number> = {};
+    const counts: Record<string, number> = {};
+    let totalPoolCents = 0;
+    let totalCount = 0;
+
+    bidList.forEach((bid) => {
+      if (bid.status === 'paid') {
+        const catKey = (bid.category || 'Other').toLowerCase();
+        pools[catKey] = (pools[catKey] || 0) + Math.round(bid.amount / 100);
+        counts[catKey] = (counts[catKey] || 0) + 1;
+        totalPoolCents += bid.amount;
+        totalCount += 1;
+      }
+    });
+
+    onCategoryMetricsRef.current?.(pools, counts, Math.round(totalPoolCents / 100), totalCount);
   }, []);
 
   const fetchPaidBids = useCallback(async () => {
@@ -162,9 +190,7 @@ export function Leaderboard({
                 if (insertedBid.amount >= currentTop && insertedBid.amount > 0) {
                   try {
                     confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
-                  } catch (e) {
-                    // Ignore confetti error
-                  }
+                  } catch (e) {}
                 }
               }
             } else if (eventType === 'UPDATE') {
@@ -181,9 +207,7 @@ export function Leaderboard({
                 if (updatedBid.amount >= currentTop && updatedBid.amount > 0) {
                   try {
                     confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
-                  } catch (e) {
-                    // Ignore confetti error
-                  }
+                  } catch (e) {}
                 }
               } else {
                 if (existingIndex >= 0) {
@@ -228,20 +252,23 @@ export function Leaderboard({
     setWatchlistVersion((v) => v + 1);
   };
 
-  // Filter and sort bids based on activeTab, category, and search query
+  // Dual-Board Engine: Filter and sort bids based on activeTab, category, and search query
   const filteredBids = useMemo(() => {
     let result = [...bids];
     const now = new Date();
 
-    // 1. Temporal Tabs Filter
+    // 1. Dual-Board & Temporal Tabs
     if (activeTab === 'today') {
-      const startOfTodayUTC = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+      // 24-Hour Rolling Sliding Window
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      result = result.filter(
+        (b) => new Date(b.updated_at || b.created_at) >= twentyFourHoursAgo
       );
-      result = result.filter((b) => new Date(b.created_at) >= startOfTodayUTC);
     } else if (activeTab === 'week') {
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      result = result.filter((b) => new Date(b.created_at) >= sevenDaysAgo);
+      result = result.filter(
+        (b) => new Date(b.updated_at || b.created_at) >= sevenDaysAgo
+      );
     } else if (activeTab === 'latest') {
       result.sort((a, b) => {
         const timeA = new Date(a.updated_at || a.created_at).getTime();
@@ -314,7 +341,7 @@ export function Leaderboard({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Today</span>
+              <span>Today (24h)</span>
             </button>
 
             <button
@@ -354,11 +381,11 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'watchlist'
-                  ? 'bg-surface text-amber-800 font-bold shadow-sm border border-outline-variant'
-                  : 'text-amber-700 hover:text-amber-900'
+                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
+                  : 'text-text-muted hover:text-text-main'
               }`}
             >
-              <Star className="w-3.5 h-3.5" />
+              <Star className="w-3.5 h-3.5 text-amber-500" />
               <span>Watchlist</span>
             </button>
 
@@ -370,63 +397,75 @@ export function Leaderboard({
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'free'
                   ? 'bg-surface text-emerald-800 font-bold shadow-sm border border-outline-variant'
-                  : 'text-emerald-700 hover:text-emerald-900'
+                  : 'text-text-muted hover:text-text-main'
               }`}
             >
-              <Gift className="w-3.5 h-3.5" />
+              <Gift className="w-3.5 h-3.5 text-emerald-600" />
               <span>Free Tier</span>
             </button>
           </div>
 
-          {/* Right: Midnight UTC Timer & Search */}
-          <div className="flex items-center gap-2.5">
-            {activeTab === 'today' && <MidnightCountdown />}
+          {/* Midnight Countdown */}
+          <MidnightCountdown />
+        </div>
 
-            <div className="relative w-full sm:w-56">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-muted">
-                <Search className="w-3.5 h-3.5" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setVisibleCount(ITEMS_PER_PAGE);
-                }}
-                placeholder="Search listings..."
-                className="w-full pl-8 pr-3 py-1.5 bg-surface border border-outline-variant rounded-xl text-xs text-on-surface placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all shadow-sm"
-              />
-            </div>
+        {/* Search Bar & Active Category Tag */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-outline" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setVisibleCount(ITEMS_PER_PAGE);
+              }}
+              placeholder="Search listings by title, domain, or category..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-outline-variant bg-surface text-xs text-on-surface placeholder:text-text-muted/60 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-text-muted font-medium w-full sm:w-auto justify-between sm:justify-end">
+            <span>
+              Showing <strong className="text-on-surface">{filteredBids.length}</strong> listings
+              {selectedCategory !== 'All' && (
+                <span> in <strong className="text-primary font-bold">{selectedCategory}</strong></span>
+              )}
+            </span>
+
+            <button
+              onClick={() => fetchPaidBids()}
+              disabled={loading}
+              title="Refresh Leaderboard"
+              className="p-1.5 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors cursor-pointer text-text-muted hover:text-on-surface"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Loading state */}
+      {/* --- ERROR / LOADING STATES --- */}
+      {error && (
+        <div className="p-4 rounded-xl bg-error-container border border-error/20 text-error text-xs mb-6">
+          {error}
+        </div>
+      )}
+
       {loading && bids.length === 0 && (
-        <div className="space-y-3 my-6">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className="h-24 rounded-xl bg-surface border border-outline-variant animate-pulse p-4" />
+        <div className="space-y-4 my-6">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="p-6 rounded-xl border border-outline-variant bg-surface animate-pulse h-28"
+            />
           ))}
         </div>
       )}
 
-      {/* Error state */}
-      {error && (
-        <div className="p-4 rounded-xl bg-error-container border border-error/30 text-center text-sm text-error my-4">
-          <p>{error}</p>
-          <button
-            onClick={fetchPaidBids}
-            className="mt-2 text-xs font-semibold text-error hover:underline inline-flex items-center gap-1 cursor-pointer"
-          >
-            <RefreshCw className="w-3 h-3" />
-            <span>Try reloading</span>
-          </button>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && filteredBids.length === 0 && !error && (
-        <div className="bg-surface rounded-2xl p-8 sm:p-12 text-center border-dashed border-2 border-outline-variant my-6">
+      {/* --- EMPTY STATE --- */}
+      {!loading && filteredBids.length === 0 && (
+        <div className="p-12 text-center rounded-2xl border border-outline-variant bg-surface my-8 space-y-3">
           <div className="w-12 h-12 rounded-xl bg-surface-container text-primary flex items-center justify-center mx-auto mb-3 font-display font-bold text-xl">
             ✧
           </div>
@@ -452,13 +491,13 @@ export function Leaderboard({
           return (
             <React.Fragment key={bid.id}>
               {showTop10Divider && (
-                <div className="flex items-center justify-center my-8 relative">
+                <div className="relative py-4 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-outline-variant" />
+                    <div className="w-full border-t border-dashed border-outline-variant" />
                   </div>
-                  <div className="relative bg-background px-6 text-xs font-semibold text-text-muted uppercase tracking-widest">
-                    Top 10 Spotlight Ends
-                  </div>
+                  <span className="relative px-3 bg-background text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                    ─── TOP 10 SPOTLIGHT CUTOFF ───
+                  </span>
                 </div>
               )}
 
@@ -473,17 +512,14 @@ export function Leaderboard({
         })}
       </div>
 
-      {/* Pagination / Load More */}
+      {/* --- PAGINATION (LOAD MORE) --- */}
       {filteredBids.length > visibleCount && (
-        <div className="flex justify-between items-center mt-10 pt-6 border-t border-outline-variant text-sm font-semibold text-text-muted">
-          <span>
-            1–{Math.min(visibleCount, filteredBids.length)} of {filteredBids.length}
-          </span>
+        <div className="text-center pt-8 pb-4">
           <button
             onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
-            className="hover:text-primary transition-colors flex items-center gap-1 font-bold cursor-pointer"
+            className="px-6 py-2.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container transition-colors text-xs font-bold text-text-main cursor-pointer shadow-xs"
           >
-            Load More Placements ({filteredBids.length - visibleCount} remaining) →
+            Load Next {Math.min(ITEMS_PER_PAGE, filteredBids.length - visibleCount)} Listings ({visibleCount} of {filteredBids.length})
           </button>
         </div>
       )}

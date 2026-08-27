@@ -59,7 +59,7 @@ export default function AdminDashboardPage() {
   // Seeding Form State
   const [seedUrl, setSeedUrl] = useState('');
   const [seedAmount, setSeedAmount] = useState('25');
-  const [seedCategory, setSeedCategory] = useState<BidCategory>('AI');
+  const [seedCategory, setSeedCategory] = useState<BidCategory>('SEO & AI Visibility');
   const [seedTitle, setSeedTitle] = useState('');
   const [seedDescription, setSeedDescription] = useState('');
   const [seedLoading, setSeedLoading] = useState(false);

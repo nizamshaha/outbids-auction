@@ -24,7 +24,7 @@ export function HeroBidding({
 }: HeroBiddingProps) {
   const [url, setUrl] = useState('');
   const [amount, setAmount] = useState<string>('');
-  const [category, setCategory] = useState<BidCategory>('AI');
+  const [category, setCategory] = useState<BidCategory>('SEO & AI Visibility');
   const [isFreeMode, setIsFreeMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export function HeroBidding({
       <div className="max-w-4xl mx-auto">
         {/* Sahara Headline */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 font-display text-on-surface tracking-tight">
-          Claim #1 for <span className="text-primary font-display">${claimTopDollars}</span> +
+          Claim <span className="text-red-500 font-display">#1</span> for <span className="text-primary font-display">${claimTopDollars}</span> +
         </h1>
 
         {/* Sahara Editorial Subtitle */}
@@ -344,8 +344,13 @@ export function HeroBidding({
           </div>
         </form>
 
+        {/* Consumer Disclosure Notice & Compliance Disclaimer */}
+        <p className="mt-4 text-[11px] text-text-muted/80 max-w-2xl mx-auto leading-normal text-center italic">
+          Rank represents a changing, competitive display order on this public board and does not constitute a guarantee of traffic, sales, search ranking, or endorsement.
+        </p>
+
         {/* Feature & Platform badges */}
-        <div className="mt-8 text-xs text-text-muted flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-6 text-xs text-text-muted flex flex-wrap items-center justify-center gap-4">
           <span>Websites, X, Instagram, App Store and Google Play links supported.</span>
           <span className="flex gap-1.5">
             <span className="px-2 py-0.5 rounded border border-outline-variant bg-surface text-[11px] font-semibold uppercase tracking-wider text-text-muted">

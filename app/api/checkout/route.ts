@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CreateCheckoutPayload, CheckoutResponse } from '@/types/bid';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
-import { scrapeUrlMetadata } from '@/utils/metadata';
+import { scrapeUrlMetadata, isSafePublicUrl } from '@/utils/metadata';
 
 export const dynamic = 'force-dynamic';
+
+const MAX_BID_AMOUNT_DOLLARS = 1000000; // $1,000,000 max single bid limit to prevent numeric overflow
+const MIN_BID_AMOUNT_DOLLARS = 1;       // $1.00 minimum bid
 
 function getDodoBaseUrl(): string {
   const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'live_mode';
@@ -15,10 +18,20 @@ function getDodoBaseUrl(): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const body: CreateCheckoutPayload = await req.json();
+    let body: CreateCheckoutPayload;
+
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Invalid JSON request payload.' },
+        { status: 400 }
+      );
+    }
+
     const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false } = body;
 
-    // 1. Validate URL or @handle
+    // 1. Strict URL validation and normalization
     if (!url || typeof url !== 'string') {
       return NextResponse.json<CheckoutResponse>(
         { error: 'A valid website URL or @handle is required.' },
@@ -27,28 +40,49 @@ export async function POST(req: NextRequest) {
     }
 
     const { isValid, normalizedUrl, displayDomain, error: urlError } = sanitizeAndNormalizeUrl(url);
-    if (!isValid) {
+    if (!isValid || !normalizedUrl) {
       return NextResponse.json<CheckoutResponse>(
-        { error: urlError || 'Invalid URL or @handle.' },
+        { error: urlError || 'Invalid URL or @handle format.' },
         { status: 400 }
       );
     }
 
-    // 2. Scrape metadata if title / description were not provided
+    // SSRF validation on normalized URL
+    if (!isSafePublicUrl(normalizedUrl)) {
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Submitted URL cannot point to internal or restricted IP addresses.' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize category, title, and description inputs
+    const sanitizedCategory = typeof category === 'string' ? category.trim().slice(0, 50) : 'Other';
+    const sanitizedTitleInput = typeof title === 'string' ? title.trim().slice(0, 100) : '';
+    const sanitizedDescInput = typeof description === 'string' ? description.trim().slice(0, 300) : '';
+
+    // 2. Scrape metadata safely with SSRF protection & timeouts
     const scraped = await scrapeUrlMetadata(normalizedUrl);
-    const finalTitle = title?.trim() || scraped.title || displayDomain;
-    const finalDescription = description?.trim() || scraped.description || null;
+    const finalTitle = sanitizedTitleInput || scraped.title || displayDomain;
+    const finalDescription = sanitizedDescInput || scraped.description || null;
     const finalIconUrl = scraped.iconUrl || null;
 
     const supabase = createAdminClient();
 
-    // 3. Check for existing listing (Top-Up logic)
-    const { data: existingBid } = await supabase
+    // 3. Query existing listing for top-up calculation
+    const { data: existingBid, error: queryError } = await supabase
       .from('bids')
       .select('id, amount, status')
       .eq('url', normalizedUrl)
       .limit(1)
       .maybeSingle();
+
+    if (queryError) {
+      console.error('[Checkout Database Error]:', queryError);
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Database service unavailable. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     const existingAmountCents = existingBid ? existingBid.amount : 0;
     const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
@@ -64,25 +98,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Direct insertion without payment gateway
+      // Direct insertion with parameterized DTO
       const { data: inserted, error: insertError } = await supabase
         .from('bids')
         .insert({
           url: normalizedUrl,
           amount: 0,
           status: 'paid',
-          category,
+          category: sanitizedCategory,
           title: finalTitle,
           description: finalDescription,
           icon_url: finalIconUrl,
           click_count: 0,
           view_count: 0,
         })
-        .select()
+        .select('id')
         .single();
 
       if (insertError) {
-        // Fallback for core schema
+        // Fallback for minimal core schema
         const fallback = await supabase
           .from('bids')
           .insert({
@@ -92,10 +126,13 @@ export async function POST(req: NextRequest) {
             title: finalTitle,
             description: finalDescription,
           })
-          .select()
+          .select('id')
           .single();
 
-        if (fallback.error) throw fallback.error;
+        if (fallback.error) {
+          console.error('[Free Tier Insert Error]:', fallback.error);
+          throw fallback.error;
+        }
 
         return NextResponse.json<CheckoutResponse>({
           provider: 'free',
@@ -118,15 +155,23 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     // B. PAID BIDDING & TOP-UP DIFFERENCE CALCULATION
     // -------------------------------------------------------------
-    const targetAmountCents = Math.round(Number(amountInDollars) * 100);
+    const rawNumAmount = Number(amountInDollars);
 
-    if (isNaN(targetAmountCents) || targetAmountCents < 100) {
+    if (isNaN(rawNumAmount) || !isFinite(rawNumAmount) || rawNumAmount < MIN_BID_AMOUNT_DOLLARS) {
       return NextResponse.json<CheckoutResponse>(
-        { error: 'Minimum bid amount is $1.00.' },
+        { error: `Minimum bid amount is $${MIN_BID_AMOUNT_DOLLARS.toFixed(2)}.` },
         { status: 400 }
       );
     }
 
+    if (rawNumAmount > MAX_BID_AMOUNT_DOLLARS) {
+      return NextResponse.json<CheckoutResponse>(
+        { error: `Maximum allowable single bid is $${MAX_BID_AMOUNT_DOLLARS.toLocaleString()}.` },
+        { status: 400 }
+      );
+    }
+
+    const targetAmountCents = Math.round(rawNumAmount * 100);
     let chargeAmountCents = targetAmountCents;
     let isTopUp = false;
 
@@ -157,7 +202,7 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
 
     if (!apiKey) {
-      console.error('[Dodo Payments] DODO_SECRET_KEY or DODO_PAYMENTS_API_KEY is not configured.');
+      console.error('[Dodo Payments Security] DODO_SECRET_KEY or DODO_PAYMENTS_API_KEY is not configured.');
       return NextResponse.json<CheckoutResponse>(
         { error: 'Payment gateway configuration missing. Please contact support.' },
         { status: 500 }
@@ -166,7 +211,7 @@ export async function POST(req: NextRequest) {
 
     const dodoBaseUrl = getDodoBaseUrl();
 
-    // Prepare Dodo Payments Checkout Session Payload
+    // Prepare strictly sanitized Dodo Payments Checkout Payload
     const dodoPayload = {
       billing: {
         country: 'US',
@@ -186,7 +231,7 @@ export async function POST(req: NextRequest) {
       return_url: `${siteUrl}/`,
       metadata: {
         url: normalizedUrl,
-        category: category || 'Other',
+        category: sanitizedCategory,
         bid_amount: targetAmountCents.toString(),
         is_topup: isTopUp ? 'true' : 'false',
         existing_bid_id: existingBid?.id || '',
@@ -196,7 +241,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    console.log(`[Dodo Payments] Initiating checkout for ${normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100})`);
+    console.log(`[Dodo Payments] Initiating secure checkout for ${normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100})`);
 
     const dodoRes = await fetch(`${dodoBaseUrl}/payments`, {
       method: 'POST',
@@ -225,7 +270,7 @@ export async function POST(req: NextRequest) {
       totalBidDollars: targetAmountCents / 100,
     });
   } catch (error: any) {
-    console.error('[Checkout Route Error]:', error);
+    console.error('[Checkout Route Security Error]:', error);
     return NextResponse.json<CheckoutResponse>(
       { error: error?.message || 'An unexpected error occurred during checkout initialization.' },
       { status: 500 }

@@ -9,6 +9,9 @@ function hashIp(ip: string): string {
   return crypto.createHmac('sha256', salt).update(ip).digest('hex');
 }
 
+const BOT_USER_AGENT_PATTERN =
+  /(bot|spider|crawl|slurp|facebookexternalhit|whatsapp|telegrambot|twitterbot|slackbot|discordbot|applebot|bingbot|googlebot|yandex|duckduckgo|baiduspider|embedly|quora|linkedinbot|pinterest)/i;
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -38,7 +41,18 @@ export async function GET(
       return NextResponse.redirect(siteUrl);
     }
 
-    // 2. Perform 24-hour unique IP deduplicated click registration
+    const destinationUrl =
+      bid.url.startsWith('http://') || bid.url.startsWith('https://')
+        ? bid.url
+        : `https://${bid.url}`;
+
+    // 2. Filter out bots and automated crawlers from inflating click stats
+    const userAgent = req.headers.get('user-agent') || '';
+    if (BOT_USER_AGENT_PATTERN.test(userAgent)) {
+      return NextResponse.redirect(destinationUrl, { status: 302 });
+    }
+
+    // 3. Perform 24-hour unique IP deduplicated click registration
     const rawIp =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       req.headers.get('x-real-ip') ||
@@ -70,12 +84,6 @@ export async function GET(
         .update({ click_count: updatedCount })
         .eq('id', bidId);
     }
-
-    // 3. Ensure proper destination URL protocol
-    const destinationUrl =
-      bid.url.startsWith('http://') || bid.url.startsWith('https://')
-        ? bid.url
-        : `https://${bid.url}`;
 
     return NextResponse.redirect(destinationUrl, { status: 302 });
   } catch (err) {

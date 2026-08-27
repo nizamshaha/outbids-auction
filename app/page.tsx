@@ -16,6 +16,7 @@ function MainContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [selectedBidAmount, setSelectedBidAmount] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [categoryPools, setCategoryPools] = useState<Record<string, number>>({});
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({
     count: 0,
@@ -40,8 +41,14 @@ function MainContent() {
     []
   );
 
-  const handleCategoryCounts = useCallback(
-    (counts: Record<string, number>) => {
+  const handleCategoryMetrics = useCallback(
+    (
+      pools: Record<string, number>,
+      counts: Record<string, number>,
+      _totalPoolDollars: number,
+      _totalCount: number
+    ) => {
+      setCategoryPools(pools);
       setCategoryCounts(counts);
     },
     []
@@ -98,6 +105,8 @@ function MainContent() {
     }
   }, [searchParams]);
 
+  const totalPoolDollars = Math.round(stats.totalVolume / 100);
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-on-surface selection:bg-primary selection:text-white">
       {/* 1. Sahara Sticky Editorial Header */}
@@ -148,7 +157,9 @@ function MainContent() {
           <CategorySidebar
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            categoryPools={categoryPools}
             categoryCounts={categoryCounts}
+            totalPoolDollars={totalPoolDollars}
             totalCount={stats.count}
           />
 
@@ -159,6 +170,7 @@ function MainContent() {
               onStatsUpdate={handleStatsUpdate}
               onConnectionChange={handleConnectionChange}
               onSelectBidAmount={handleSelectBidAmount}
+              onCategoryMetricsCalculated={handleCategoryMetrics}
             />
           </div>
         </div>

@@ -9,6 +9,9 @@ function hashIp(ip: string): string {
   return crypto.createHmac('sha256', salt).update(ip).digest('hex');
 }
 
+const BOT_USER_AGENT_PATTERN =
+  /(bot|spider|crawl|slurp|facebookexternalhit|whatsapp|telegrambot|twitterbot|slackbot|discordbot|applebot|bingbot|googlebot|yandex|duckduckgo|baiduspider|embedly|quora|linkedinbot|pinterest)/i;
+
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const bidId = searchParams.get('id');
@@ -27,6 +30,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(sanitizedUrl);
   }
 
+  // Filter out automated crawler requests
+  const userAgent = req.headers.get('user-agent') || '';
+  if (BOT_USER_AGENT_PATTERN.test(userAgent)) {
+    return NextResponse.redirect(sanitizedUrl);
+  }
+
   try {
     const rawIp =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -36,7 +45,6 @@ export async function GET(req: NextRequest) {
     const ipHash = hashIp(rawIp);
     const supabase = createAdminClient();
 
-    // Call atomic RPC function if available, or execute fallback check
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const { data: recentClicks, error: checkError } = await supabase
@@ -71,7 +79,6 @@ export async function GET(req: NextRequest) {
     }
   } catch (err) {
     console.error('[Click Tracking Error]:', err);
-    // Non-blocking for user redirection
   }
 
   return NextResponse.redirect(sanitizedUrl);

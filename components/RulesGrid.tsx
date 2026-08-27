@@ -37,16 +37,16 @@ export function RulesGrid() {
             Rules / How it works
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-2 font-display text-on-surface">
-            Simple rules.
+            Straightforward rules.
           </h2>
           <h2 className="text-4xl sm:text-5xl font-bold text-primary mb-6 font-display">
-            Visible outcomes.
+            Transparent results.
           </h2>
           <p className="text-text-muted mb-8 text-base sm:text-lg leading-relaxed">
-            Every verified bid buys a public position, not an opaque algorithm.
+            Every confirmed bid secures real public placement, governed by open math rather than hidden algorithms.
           </p>
           <div className="text-xs font-bold text-text-muted uppercase tracking-widest">
-            01–04 · CLEAR BY DESIGN
+            01–04 · TRANSPARENT BY DESIGN
           </div>
         </div>
 

@@ -1,10 +1,14 @@
 import crypto from 'crypto';
 import { NextRequest } from 'next/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 
 export const ADMIN_COOKIE_NAME = 'outbids_admin_session';
 
-function getAdminSecret(): string {
-  return process.env.ADMIN_PASSWORD || process.env.PAYPAL_SECRET || 'outbids_admin_secure_secret_2026';
+// Runtime in-memory cache for dynamically updated passwords
+let cachedAdminPassword: string | null = null;
+
+export function getAdminSecret(): string {
+  return cachedAdminPassword || process.env.ADMIN_PASSWORD || process.env.PAYPAL_SECRET || 'outbids_admin_secure_secret_2026';
 }
 
 /**
@@ -55,9 +59,44 @@ export function isRequestAdminAuthenticated(req: NextRequest): boolean {
 }
 
 /**
- * Verifies password against environment variable
+ * Verifies password against runtime cache or environment variable using constant-time comparison
  */
 export function verifyAdminPassword(password: string): boolean {
-  const actualPassword = process.env.ADMIN_PASSWORD || 'outbids_admin_2026';
-  return Boolean(password && password === actualPassword);
+  const actualPassword = cachedAdminPassword || process.env.ADMIN_PASSWORD || 'outbids_admin_2026';
+  if (!password || !actualPassword) return false;
+
+  try {
+    const bufA = Buffer.from(password);
+    const bufB = Buffer.from(actualPassword);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return password === actualPassword;
+  }
+}
+
+/**
+ * Updates the active admin password in memory and attempts persistence in Supabase
+ */
+export async function updateAdminPassword(newPassword: string): Promise<boolean> {
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error('New password must be at least 8 characters long.');
+  }
+
+  cachedAdminPassword = newPassword;
+
+  try {
+    const supabase = createAdminClient();
+    // Attempt persistence in app_settings table if schema exists
+    await (supabase.from as any)('app_settings').upsert({
+      key: 'admin_password',
+      value: newPassword,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    // Non-fatal: in-memory cache remains active for current runtime
+    console.warn('[Admin Auth] Supabase app_settings persistence skipped:', err);
+  }
+
+  return true;
 }

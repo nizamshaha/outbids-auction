@@ -74,8 +74,8 @@ export default function RefundPage() {
             </ul>
             <p>
               Please contact support immediately at{' '}
-              <a href="mailto:support@outbids.auction" className="text-primary font-bold hover:underline">
-                support@outbids.auction
+              <a href="mailto:sales@outbids.auction" className="text-primary font-bold hover:underline">
+                sales@outbids.auction
               </a>{' '}
               with your <strong>Payment Reference ID</strong> and submitted target URL. We will investigate the transaction logs and manually restore your placement or issue a resolution.
             </p>

@@ -27,11 +27,11 @@ export function Footer() {
           </p>
           <div className="pt-2">
             <a
-              href="mailto:support@outbids.auction"
+              href="mailto:sales@outbids.auction"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
             >
               <Mail className="w-3.5 h-3.5" />
-              <span>support@outbids.auction</span>
+              <span>sales@outbids.auction</span>
             </a>
           </div>
         </div>

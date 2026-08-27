@@ -42,11 +42,11 @@ export default function ContactPage() {
             </div>
             <div className="pt-2">
               <a
-                href="mailto:support@outbids.auction"
+                href="mailto:sales@outbids.auction"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-white font-semibold text-xs transition-colors shadow-sm"
               >
                 <Mail className="w-3.5 h-3.5" />
-                <span>support@outbids.auction</span>
+                <span>sales@outbids.auction</span>
               </a>
             </div>
           </div>
@@ -101,7 +101,7 @@ export default function ContactPage() {
                 Can I update my website URL after bidding?
               </h4>
               <p className="text-sm text-text-muted leading-relaxed">
-                If you made a typo during submission, please email us at <a href="mailto:support@outbids.auction" className="text-primary font-semibold hover:underline">support@outbids.auction</a> with your Payment Reference ID, and our team will update your link.
+                If you made a typo during submission, please email us at <a href="mailto:sales@outbids.auction" className="text-primary font-semibold hover:underline">sales@outbids.auction</a> with your Payment Reference ID, and our team will update your link.
               </p>
             </div>
           </div>

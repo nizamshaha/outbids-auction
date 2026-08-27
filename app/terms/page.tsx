@@ -78,8 +78,8 @@ export default function TermsPage() {
             <h2 className="text-2xl font-bold font-display text-on-surface">5. Contact Information</h2>
             <p>
               For any questions regarding these Terms of Service or billing inquiries, please contact us at{' '}
-              <a href="mailto:support@outbids.auction" className="text-primary font-bold hover:underline">
-                support@outbids.auction
+              <a href="mailto:sales@outbids.auction" className="text-primary font-bold hover:underline">
+                sales@outbids.auction
               </a>.
             </p>
           </section>

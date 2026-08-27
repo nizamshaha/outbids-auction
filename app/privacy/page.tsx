@@ -87,8 +87,8 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-bold font-display text-on-surface">6. Your Rights & Contact</h2>
             <p>
               You have the right to request deletion of your submitted link or ask questions regarding your data privacy. Contact our privacy team at:{' '}
-              <a href="mailto:support@outbids.auction" className="text-primary font-bold hover:underline">
-                support@outbids.auction
+              <a href="mailto:sales@outbids.auction" className="text-primary font-bold hover:underline">
+                sales@outbids.auction
               </a>.
             </p>
           </section>

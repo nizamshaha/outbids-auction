@@ -22,15 +22,22 @@ export async function GET(req: NextRequest) {
     const paidBids = bids.filter((b) => b.status === 'paid');
     const totalVolumeCents = paidBids.reduce((acc, b) => acc + (b.amount || 0), 0);
 
-    return NextResponse.json({
-      bids: bids || [],
-      stats: {
-        totalCount: bids.length,
-        paidCount: paidBids.length,
-        pendingCount: bids.filter((b) => b.status === 'pending').length,
-        totalVolumeDollars: totalVolumeCents / 100,
+    return NextResponse.json(
+      {
+        bids: bids || [],
+        stats: {
+          totalCount: bids.length,
+          paidCount: paidBids.length,
+          pendingCount: bids.filter((b) => b.status === 'pending').length,
+          totalVolumeDollars: totalVolumeCents / 100,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Failed to fetch bids.' }, { status: 500 });
   }

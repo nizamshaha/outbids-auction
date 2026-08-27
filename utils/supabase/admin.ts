@@ -13,11 +13,20 @@ const supabaseUrl =
 export const createAdminClient = (): SupabaseClient<Database> => {
   const supabaseServiceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SECRET_KEY;
+
+  if (!supabaseServiceRoleKey && process.env.NODE_ENV === 'production') {
+    console.warn(
+      '[Supabase Admin] Warning: SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables. Mutations may fail against Row Level Security (RLS).'
+    );
+  }
+
+  const keyToUse =
+    supabaseServiceRoleKey ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     'sb_placeholder_key_for_build';
 
-  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+  return createClient<Database>(supabaseUrl, keyToUse, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

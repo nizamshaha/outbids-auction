@@ -1,12 +1,13 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { PLATFORM_CATEGORIES, BidCategory } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
 import {
   ShieldCheck,
   Lock,
-  KeyRound,
   Loader2,
   RefreshCw,
   Trash2,
@@ -56,14 +57,6 @@ export default function AdminDashboardPage() {
   // Toast Banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Change Password State
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [currentPass, setCurrentPass] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [cpLoading, setCpLoading] = useState(false);
-  const [cpFeedback, setCpFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
   // Edit Listing State
   const [editingBid, setEditingBid] = useState<AdminBid | null>(null);
   const [editUrl, setEditUrl] = useState('');
@@ -97,7 +90,7 @@ export default function AdminDashboardPage() {
   // Check current session
   const checkAuth = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/auth/check');
+      const res = await fetch('/api/admin/auth/check', { cache: 'no-store' });
       const data = await res.json();
       setIsAuthenticated(Boolean(data.authenticated));
     } catch {
@@ -114,7 +107,7 @@ export default function AdminDashboardPage() {
     if (!isAuthenticated) return;
     setLoadingData(true);
     try {
-      const res = await fetch('/api/admin/bids');
+      const res = await fetch('/api/admin/bids', { cache: 'no-store' });
       if (res.status === 401) {
         setIsAuthenticated(false);
         return;
@@ -159,64 +152,6 @@ export default function AdminDashboardPage() {
       setAuthError(err.message || 'Authentication failed.');
     } finally {
       setAuthLoading(false);
-    }
-  };
-
-  // Handle Change Password Form Submission
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCpFeedback(null);
-
-    if (!currentPass) {
-      setCpFeedback({ type: 'error', text: 'Current password is required.' });
-      return;
-    }
-
-    if (!newPass || !confirmPass) {
-      setCpFeedback({ type: 'error', text: 'Please fill in both new password fields.' });
-      return;
-    }
-
-    if (newPass !== confirmPass) {
-      setCpFeedback({ type: 'error', text: 'New password and confirmation do not match.' });
-      return;
-    }
-
-    if (newPass.length < 8) {
-      setCpFeedback({ type: 'error', text: 'New password must be at least 8 characters long.' });
-      return;
-    }
-
-    setCpLoading(true);
-
-    try {
-      const res = await fetch('/api/admin/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: currentPass,
-          newPassword: newPass,
-          confirmPassword: confirmPass,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to change password.');
-      }
-
-      setCpFeedback({
-        type: 'success',
-        text: '✓ Admin password updated successfully! Your new credentials are active.',
-      });
-      setCurrentPass('');
-      setNewPass('');
-      setConfirmPass('');
-      setIsAuthenticated(true);
-    } catch (err: any) {
-      setCpFeedback({ type: 'error', text: err.message || 'Failed to update password.' });
-    } finally {
-      setCpLoading(false);
     }
   };
 
@@ -342,7 +277,10 @@ export default function AdminDashboardPage() {
     setActionLoadingId(id);
     try {
       const res = await fetch(`/api/admin/bids/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}: Failed to delete listing.`);
+      }
       setBids((prev) => prev.filter((b) => b.id !== id));
       setToastMessage(`✓ Listing "${domain}" removed successfully.`);
       setTimeout(() => setToastMessage(null), 4000);
@@ -412,162 +350,55 @@ export default function AdminDashboardPage() {
         <div className="w-full max-w-md p-8 rounded-3xl bg-gray-950 border border-gray-800 shadow-2xl text-center space-y-6">
           {/* Header Icon */}
           <div className="w-14 h-14 rounded-2xl bg-orange-500/15 border border-orange-500/30 text-orange-400 flex items-center justify-center mx-auto shadow-inner">
-            {showChangePassword ? <KeyRound className="w-7 h-7" /> : <Lock className="w-7 h-7" />}
+            <Lock className="w-7 h-7" />
           </div>
 
           <div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {showChangePassword ? 'Change Master Password' : 'Admin Command Center'}
+              Admin Command Center
             </h1>
             <p className="text-sm text-gray-300 mt-1.5 leading-relaxed font-medium">
-              {showChangePassword
-                ? 'Authenticate with your current password to set a new master admin key.'
-                : 'Enter your master password to manage board seeding & moderation.'}
+              Enter your master password to manage board seeding & moderation.
             </p>
           </div>
 
           {/* Feedback Banners */}
-          {authError && !showChangePassword && (
+          {authError && (
             <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs sm:text-sm font-semibold flex items-center gap-2.5 text-left">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
               <span>{authError}</span>
             </div>
           )}
 
-          {cpFeedback && showChangePassword && (
-            <div
-              className={`p-3.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 text-left ${
-                cpFeedback.type === 'success'
-                  ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-200'
-                  : 'bg-red-950/80 border border-red-500/50 text-red-200'
-              }`}
-            >
-              {cpFeedback.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              )}
-              <span>{cpFeedback.text}</span>
-            </div>
-          )}
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Admin Master Password"
+              required
+              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 shadow-inner"
+            />
 
-          {/* Form: Login or Change Password */}
-          {!showChangePassword ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Admin Master Password"
-                required
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 shadow-inner"
-              />
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-sm transition-all shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {authLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Verifying Credentials...</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Unlock Command Center</span>
-                  </>
-                )}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleChangePassword} className="space-y-3.5 text-left">
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={currentPass}
-                  onChange={(e) => setCurrentPass(e.target.value)}
-                  placeholder="Enter current password"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  New Password (min 8 chars)
-                </label>
-                <input
-                  type="password"
-                  value={newPass}
-                  onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="Enter new password"
-                  required
-                  minLength={8}
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={confirmPass}
-                  onChange={(e) => setConfirmPass(e.target.value)}
-                  placeholder="Confirm new password"
-                  required
-                  minLength={8}
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={cpLoading}
-                className="w-full mt-2 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {cpLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Updating Password...</span>
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="w-4 h-4" />
-                    <span>Confirm & Update Master Password</span>
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* Toggle Change Password Link */}
-          <div className="pt-2 border-t border-gray-800">
             <button
-              type="button"
-              onClick={() => {
-                setShowChangePassword(!showChangePassword);
-                setAuthError(null);
-                setCpFeedback(null);
-              }}
-              className="text-xs sm:text-sm font-bold text-orange-400 hover:text-orange-300 hover:underline cursor-pointer inline-flex items-center gap-1.5"
+              type="submit"
+              disabled={authLoading}
+              className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-sm transition-all shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              {showChangePassword ? (
-                <>← Back to Master Login</>
+              {authLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Verifying Credentials...</span>
+                </>
               ) : (
                 <>
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>Change Master Admin Password</span>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Unlock Command Center</span>
                 </>
               )}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     );
@@ -608,14 +439,6 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setShowChangePassword(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 hover:text-white hover:bg-gray-800 text-xs font-bold transition-colors cursor-pointer"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-orange-400" />
-              <span className="hidden sm:inline">Change Password</span>
-            </button>
-
             <a
               href="/"
               target="_blank"
@@ -636,122 +459,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </header>
-
-      {/* Modal: Change Password from Inside Dashboard */}
-      {showChangePassword && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-gray-950 border border-gray-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-orange-400" />
-                <h3 className="font-bold text-lg text-white">Update Master Password</h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowChangePassword(false);
-                  setCpFeedback(null);
-                }}
-                className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {cpFeedback && (
-              <div
-                className={`p-3.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 ${
-                  cpFeedback.type === 'success'
-                    ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-200'
-                    : 'bg-red-950/80 border border-red-500/50 text-red-200'
-                }`}
-              >
-                {cpFeedback.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                )}
-                <span>{cpFeedback.text}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleChangePassword} className="space-y-3.5 text-left">
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={currentPass}
-                  onChange={(e) => setCurrentPass(e.target.value)}
-                  placeholder="Enter current password"
-                  required
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  New Password (min 8 chars)
-                </label>
-                <input
-                  type="password"
-                  value={newPass}
-                  onChange={(e) => setNewPass(e.target.value)}
-                  placeholder="Enter new password"
-                  required
-                  minLength={8}
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={confirmPass}
-                  onChange={(e) => setConfirmPass(e.target.value)}
-                  placeholder="Confirm new password"
-                  required
-                  minLength={8}
-                  className="w-full px-3.5 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowChangePassword(false);
-                    setCpFeedback(null);
-                  }}
-                  className="px-4 py-2.5 rounded-xl border border-gray-700 bg-gray-900 hover:bg-gray-850 text-gray-300 hover:text-white text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={cpLoading}
-                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-xs transition-all shadow-md shadow-orange-600/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {cpLoading ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="w-3.5 h-3.5" />
-                      <span>Update Password</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal: Inline Editor for Active Listings */}
       {editingBid && (

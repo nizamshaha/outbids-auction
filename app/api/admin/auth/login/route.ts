@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
   try {
     const { password } = await req.json();
 
-    if (!password || !verifyAdminPassword(password)) {
+    const isValid = verifyAdminPassword(password);
+    if (!password || !isValid) {
       await recordAdminAuditLog({
         action: 'ADMIN_LOGIN_FAILED',
         ipHash: clientIp,

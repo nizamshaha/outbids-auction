@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { isRequestAdminAuthenticated } from '@/utils/adminAuth';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
@@ -18,6 +19,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 1. Strictly verify admin authentication session
   if (!isRequestAdminAuthenticated(req)) {
     return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 401 });
   }
@@ -28,29 +30,75 @@ export async function DELETE(
   }
 
   try {
+    // 2. Initialize Supabase Admin client with Service Role Key to bypass RLS
     const supabase = createAdminClient();
 
-    // Fetch existing state for audit log
-    const { data: existingBid } = await supabase
+    // 3. Fetch existing state for audit log and existence check
+    const { data: existingBid, error: fetchError } = await supabase
       .from('bids')
       .select('*')
       .eq('id', bidId)
-      .single();
+      .maybeSingle();
 
-    const { error } = await supabase.from('bids').delete().eq('id', bidId);
-    if (error) throw error;
+    if (fetchError) {
+      console.error('[Admin Delete Fetch Error]:', fetchError);
+      return NextResponse.json(
+        { error: `Database fetch error: ${fetchError.message}` },
+        { status: 500 }
+      );
+    }
 
+    if (!existingBid) {
+      return NextResponse.json(
+        { error: `Listing with ID "${bidId}" not found in database.` },
+        { status: 404 }
+      );
+    }
+
+    // 4. Clean up any related analytics tracking events
+    try {
+      await supabase.from('analytics_events').delete().eq('bid_id', bidId);
+    } catch (cascadeErr) {
+      console.warn('[Admin Delete Analytics Cleanup Warning]:', cascadeErr);
+    }
+
+    // 5. Execute deletion on bids table
+    const { error: deleteError } = await supabase
+      .from('bids')
+      .delete()
+      .eq('id', bidId);
+
+    if (deleteError) {
+      console.error('[Admin Delete Mutation Error]:', deleteError);
+      return NextResponse.json(
+        { error: deleteError.message || 'Row Level Security policy blocked deletion.' },
+        { status: 500 }
+      );
+    }
+
+    // 6. Instantly purge Next.js router cache for both admin portal and public board
+    revalidatePath('/admin');
+    revalidatePath('/');
+
+    // 7. Record security audit log
     await recordAdminAuditLog({
       action: 'ADMIN_DELETED_BID',
       targetId: bidId,
-      targetUrl: existingBid?.url,
+      targetUrl: existingBid.url,
       previousState: existingBid,
       ipHash: getClientIp(req),
     });
 
-    return NextResponse.json({ success: true, message: `Listing ${bidId} removed successfully.` });
+    return NextResponse.json({
+      success: true,
+      message: `Listing for "${existingBid.title || existingBid.url}" permanently removed.`,
+    });
   } catch (err: any) {
-    return NextResponse.json({ error: 'Failed to delete listing.' }, { status: 500 });
+    console.error('[Admin Delete Unhandled Exception]:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Unexpected server error occurred while deleting listing.' },
+      { status: 500 }
+    );
   }
 }
 
@@ -89,7 +137,9 @@ export async function PATCH(
     }
 
     if (category && typeof category === 'string') updates.category = category.trim().slice(0, 50);
-    if (status === 'paid' || status === 'pending' || status === 'failed') updates.status = status;
+    if (status === 'paid' || status === 'pending' || status === 'failed' || status === 'refunded' || status === 'disputed') {
+      updates.status = status;
+    }
     if (title !== undefined) updates.title = title ? String(title).trim().slice(0, 100) : null;
     if (description !== undefined) updates.description = description ? String(description).trim().slice(0, 300) : null;
     if (icon_url !== undefined) updates.icon_url = icon_url ? String(icon_url).trim() : null;
@@ -101,7 +151,7 @@ export async function PATCH(
       .from('bids')
       .select('*')
       .eq('id', bidId)
-      .single();
+      .maybeSingle();
 
     const { data: updated, error } = await supabase
       .from('bids')
@@ -110,7 +160,17 @@ export async function PATCH(
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Admin Bid Patch Error]:', error);
+      return NextResponse.json(
+        { error: error.message || 'Failed to update listing in database.' },
+        { status: 500 }
+      );
+    }
+
+    // Purge Next.js router cache
+    revalidatePath('/admin');
+    revalidatePath('/');
 
     await recordAdminAuditLog({
       action: 'ADMIN_UPDATED_BID',
@@ -123,7 +183,10 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, bid: updated, message: 'Listing updated successfully.' });
   } catch (err: any) {
-    console.error('[Admin Bid Patch Error]:', err);
-    return NextResponse.json({ error: 'Failed to update listing.' }, { status: 500 });
+    console.error('[Admin Bid Patch Exception]:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Failed to update listing.' },
+      { status: 500 }
+    );
   }
 }

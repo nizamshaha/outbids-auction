@@ -54,3 +54,24 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.bids;
 
 -- Set replica identity to full so that realtime payloads contain complete updated row data
 ALTER TABLE public.bids REPLICA IDENTITY FULL;
+
+-- -------------------------------------------------------------
+-- Admin Settings Table for Secure Persistent Password Management
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.admin_settings (
+    id TEXT PRIMARY KEY DEFAULT 'default',
+    password_hash TEXT NOT NULL,
+    salt TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Enable Row Level Security (RLS) on admin_settings
+ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
+
+-- Service Role ONLY access policy (no public or anon read/write)
+CREATE POLICY "Service role only access on admin_settings" 
+ON public.admin_settings
+FOR ALL 
+TO service_role 
+USING (true) 
+WITH CHECK (true);

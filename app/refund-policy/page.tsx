@@ -1,4 +1,4 @@
-import RefundPage from '../refund/page';
+import RefundsPage from '../refunds/page';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -6,4 +6,4 @@ export const metadata: Metadata = {
   description: 'Refund, dispute, and cancellation policy for Outbids.auction.',
 };
 
-export default RefundPage;
+export default RefundsPage;

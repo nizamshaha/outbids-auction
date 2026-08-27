@@ -1,96 +1,136 @@
 import React from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { Lock } from 'lucide-react';
+import { Lock, Eye, Database, Server, ShieldCheck, Mail } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | Outbids.auction',
-  description: 'Privacy policy and data protection disclosures for Outbids.auction.',
+  description: 'Privacy policy, data protection disclosures, and analytics disclosures for Outbids.auction.',
 };
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-background text-on-surface">
+    <div className="min-h-screen flex flex-col bg-[#faf5ee] text-[#1a1a1a] font-sans selection:bg-[#c2652a]/20">
       <Navbar showBackHome />
 
-      <main className="max-w-4xl mx-auto px-4 py-12 flex-1 w-full">
-        <div className="mb-10 pb-6 border-b border-outline-variant">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-surface-container text-primary border border-outline-variant mb-3">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16 flex-1 w-full">
+        {/* Page Header */}
+        <div className="mb-12 pb-8 border-b border-[#d8d0c8]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#f2ece4] text-[#c2652a] border border-[#d8d0c8] mb-4">
             <Lock className="w-3.5 h-3.5" />
-            Data Protection
+            Data Protection & Privacy
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold font-display text-on-surface tracking-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-display text-[#1a1a1a] tracking-tight">
             Privacy Policy
           </h1>
-          <p className="text-sm text-text-muted mt-2">Last Updated: August 2026</p>
+          <p className="text-sm text-[#605850] mt-3 font-medium">
+            Effective Date: August 2026 • User Data Governance & Disclosures
+          </p>
         </div>
 
-        <div className="space-y-8 text-base leading-relaxed text-text-muted">
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">1. Information We Collect</h2>
+        {/* Content Body */}
+        <div className="space-y-10 text-base leading-relaxed text-[#3a302a]">
+          {/* Section 1 */}
+          <section className="space-y-4 bg-[#faf5ee] p-6 sm:p-8 rounded-2xl border border-[#d8d0c8] shadow-sm">
+            <div className="flex items-center gap-3">
+              <Eye className="w-5 h-5 text-[#c2652a] shrink-0" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-[#1a1a1a]">
+                1. Information We Collect
+              </h2>
+            </div>
             <p>
-              When you use <strong>Outbids.auction</strong>, we collect minimal information necessary to deliver our real-time leaderboard service:
+              At <strong>Outbids.auction</strong>, we prioritize radical transparency and data minimization. We only collect information essential to operate our real-time attention marketplace:
             </p>
-            <ul className="list-disc list-inside space-y-1.5 pl-2">
-              <li><strong>Submitted Website URL</strong>: The public website link you submit to be showcased on the leaderboard.</li>
-              <li><strong>Bid Amount</strong>: The monetary amount chosen for the leaderboard placement.</li>
-              <li><strong>Transaction Identifiers</strong>: Unique order references generated upon checkout to reconcile payment confirmation.</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">2. How We Use Your Information</h2>
-            <p>We use the collected information exclusively to:</p>
-            <ul className="list-disc list-inside space-y-1.5 pl-2">
-              <li>Display and rank your submitted website URL on the public leaderboard.</li>
-              <li>Broadcast real-time position updates to connected website visitors via Supabase WebSockets.</li>
-              <li>Facilitate customer service, billing verification, and technical support.</li>
-            </ul>
-          </section>
-
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">3. Third-Party Payment Processors</h2>
-            <p>
-              We do not store, process, or have access to your full credit card numbers, bank account information, or financial credentials on our servers.
-            </p>
-            <ul className="list-disc list-inside space-y-2 pl-2">
+            <ul className="list-disc list-inside space-y-2 pl-2 text-sm sm:text-base">
               <li>
-                <strong>Dodo Payments Integration:</strong> When you submit a bid, your transaction is processed directly through <strong>Dodo Payments</strong> (our authorized Merchant of Record).
+                <strong>Public Website URL / Handle:</strong> The destination link you submit to be displayed publicly on the live leaderboard.
               </li>
               <li>
-                <strong>Data Transferred:</strong> We only transmit the transaction amount, bid identifier, and associated URL metadata to Dodo Payments to generate and confirm the transaction.
+                <strong>Metadata Scrapes:</strong> Public titles, descriptions, and OpenGraph icons fetched from your public destination to generate your listing card.
               </li>
               <li>
-                <strong>Payment Security Governance:</strong> Your payment methods are handled directly by Dodo Payments in compliance with global PCI-DSS standards.
+                <strong>Bid Amounts & Transaction References:</strong> Monetary values (in USD) and cryptographic payment IDs issued by our payment gateway to reconcile verified leaderboard rankings.
+              </li>
+              <li>
+                <strong>Anonymized Click Hashes:</strong> Salted, one-way HMAC-SHA256 hashes of visitor IP addresses used strictly for 24-hour unique click deduplication. We do not store raw visitor IP addresses.
               </li>
             </ul>
           </section>
 
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">4. Cloud Infrastructure & Service Providers</h2>
-            <p>We partner with industry-standard cloud providers:</p>
-            <ul className="list-disc list-inside space-y-1.5 pl-2">
-              <li><strong>Supabase</strong>: Cloud database and real-time WebSocket replication for leaderboard synchronization.</li>
-              <li><strong>Vercel</strong>: Secure cloud hosting and Edge Content Delivery Network (CDN).</li>
+          {/* Section 2 */}
+          <section className="space-y-4 bg-[#faf5ee] p-6 sm:p-8 rounded-2xl border border-[#d8d0c8] shadow-sm">
+            <div className="flex items-center gap-3">
+              <Database className="w-5 h-5 text-[#c2652a] shrink-0" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-[#1a1a1a]">
+                2. How Your Data Is Utilized
+              </h2>
+            </div>
+            <p>We process collected data exclusively to:</p>
+            <ul className="list-disc list-inside space-y-2 pl-2 text-sm sm:text-base">
+              <li>Calculate and broadcast authoritative rankings to all live connected viewers via real-time WebSockets.</li>
+              <li>Deliver verified, deduplicated outbound visitor redirects through our tracked routing service.</li>
+              <li>Prevent automated bot spam, click fraud, and denial-of-service abuse.</li>
+              <li>Provide customer billing assistance and transaction reconciliation.</li>
             </ul>
           </section>
 
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">5. Cookies & Analytics</h2>
+          {/* Section 3 */}
+          <section className="space-y-4 bg-[#faf5ee] p-6 sm:p-8 rounded-2xl border border-[#d8d0c8] shadow-sm">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-[#c2652a] shrink-0" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-[#1a1a1a]">
+                3. Third-Party Payment Security & Merchant of Record
+              </h2>
+            </div>
             <p>
-              We use minimal essential session cookies required for core platform functionality and fraud prevention. We do not sell your personal data to third-party advertisers.
+              We do not collect, store, or process credit card numbers or banking credentials on our servers. All financial transactions are managed by our Merchant of Record, <strong>Dodo Payments</strong>.
+            </p>
+            <p className="text-sm text-[#605850]">
+              Dodo Payments is certified to global PCI-DSS Level 1 security standards and governs all checkout transactions, fraud monitoring, and tax compliance.
             </p>
           </section>
 
-          <section className="space-y-3 bg-surface p-7 rounded-xl border border-outline-variant shadow-sm">
-            <h2 className="text-2xl font-bold font-display text-on-surface">6. Your Rights & Contact</h2>
+          {/* Section 4 */}
+          <section className="space-y-4 bg-[#faf5ee] p-6 sm:p-8 rounded-2xl border border-[#d8d0c8] shadow-sm">
+            <div className="flex items-center gap-3">
+              <Server className="w-5 h-5 text-[#c2652a] shrink-0" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-display text-[#1a1a1a]">
+                4. Infrastructure & Data Retention
+              </h2>
+            </div>
             <p>
-              You have the right to request deletion of your submitted link or ask questions regarding your data privacy. Contact our privacy team at:{' '}
-              <a href="mailto:sales@outbids.auction" className="text-primary font-bold hover:underline">
-                sales@outbids.auction
-              </a>.
+              Our application is hosted on <strong>Vercel Edge Infrastructure</strong> with database and real-time state managed by <strong>Supabase</strong> (PostgreSQL). We maintain industry-standard TLS 1.3 encryption for all data in transit and AES-256 encryption for data at rest.
             </p>
+            <p>
+              Anonymized click deduplication logs are automatically purged or rotated after 24 hours.
+            </p>
+          </section>
+
+          {/* Section 5 - Rights & Contact */}
+          <section className="space-y-4 bg-[#f2ece4] p-6 sm:p-8 rounded-2xl border border-[#d8d0c8]">
+            <h2 className="text-2xl sm:text-3xl font-bold font-display text-[#1a1a1a]">
+              5. Your Privacy Rights & Contact
+            </h2>
+            <p>
+              You have the right to request deletion of your submitted link or review any transaction details associated with your listing. To exercise these rights or inquire about our privacy architecture, contact:
+            </p>
+            <div className="pt-2 flex flex-wrap gap-4 items-center">
+              <a
+                href="mailto:sales@outbids.auction?subject=Privacy%20Inquiry%20-%20outbids.auction"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#c2652a] text-white font-bold text-sm hover:bg-[#c2652a]/90 transition-colors shadow-sm"
+              >
+                <Mail className="w-4 h-4" />
+                <span>sales@outbids.auction</span>
+              </a>
+              <Link
+                href="/terms"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#d8d0c8] bg-[#faf5ee] text-[#1a1a1a] font-bold text-sm hover:bg-[#faf5ee]/80 transition-colors"
+              >
+                Terms of Service
+              </Link>
+            </div>
           </section>
         </div>
       </main>

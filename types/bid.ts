@@ -1,4 +1,4 @@
-export type BidStatus = 'pending' | 'paid' | 'failed';
+export type BidStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
 
 export const PLATFORM_CATEGORIES = [
   'SEO & AI Visibility',

@@ -16,7 +16,7 @@ export interface Database {
           updated_at: string;
           url: string;
           amount: number;
-          status: 'pending' | 'paid' | 'failed';
+          status: 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
           category: string;
           title: string | null;
           description: string | null;
@@ -31,7 +31,7 @@ export interface Database {
           updated_at?: string;
           url: string;
           amount: number;
-          status?: 'pending' | 'paid' | 'failed';
+          status?: 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
           category?: string;
           title?: string | null;
           description?: string | null;
@@ -46,7 +46,7 @@ export interface Database {
           updated_at?: string;
           url?: string;
           amount?: number;
-          status?: 'pending' | 'paid' | 'failed';
+          status?: 'pending' | 'paid' | 'failed' | 'refunded' | 'disputed';
           category?: string;
           title?: string | null;
           description?: string | null;

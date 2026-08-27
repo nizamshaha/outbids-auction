@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { getClientIp } from '@/utils/securityUtils';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 function hashIp(ip: string): string {
-  const salt = process.env.PAYPAL_SECRET || 'outbids_tracked_redirect_salt';
+  const salt = process.env.ADMIN_PASSWORD || process.env.PAYPAL_SECRET || 'outbids_tracked_redirect_salt_2026';
   return crypto.createHmac('sha256', salt).update(ip).digest('hex');
 }
 
@@ -26,10 +28,15 @@ export async function GET(
     return NextResponse.redirect(siteUrl);
   }
 
+  const rawIp = getClientIp(req);
+
+  // Rate limiting against click flood attacks
+  const rateLimit = checkRateLimit(RATE_LIMITS.CLICK_REDIRECT.action, rawIp, RATE_LIMITS.CLICK_REDIRECT.limit, RATE_LIMITS.CLICK_REDIRECT.windowSeconds);
+
   try {
     const supabase = createAdminClient();
 
-    // 1. Fetch bid record from Supabase
+    // 1. Fetch authoritative bid record from Supabase
     const { data: bid, error } = await supabase
       .from('bids')
       .select('id, url, click_count')
@@ -48,16 +55,11 @@ export async function GET(
 
     // 2. Filter out bots and automated crawlers from inflating click stats
     const userAgent = req.headers.get('user-agent') || '';
-    if (BOT_USER_AGENT_PATTERN.test(userAgent)) {
+    if (BOT_USER_AGENT_PATTERN.test(userAgent) || !rateLimit.success) {
       return NextResponse.redirect(destinationUrl, { status: 302 });
     }
 
     // 3. Perform 24-hour unique IP deduplicated click registration
-    const rawIp =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      req.headers.get('x-real-ip') ||
-      '127.0.0.1';
-
     const ipHash = hashIp(rawIp);
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -70,7 +72,7 @@ export async function GET(
       .limit(1);
 
     if (!recentClicks || recentClicks.length === 0) {
-      // Record new unique click event
+      // Record unique click event
       await supabase.from('analytics_events').insert({
         bid_id: bidId,
         ip_hash: ipHash,

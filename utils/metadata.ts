@@ -1,3 +1,4 @@
+import dns from 'dns';
 import { sanitizeAndNormalizeUrl, getFaviconUrl } from './formatters';
 
 export interface ScrapedMetadata {
@@ -13,8 +14,10 @@ export interface ScrapedMetadata {
 function cleanText(rawText: string, maxLength: number = 200): string {
   if (!rawText || typeof rawText !== 'string') return '';
   return rawText
-    .replace(/<[^>]*>/g, '') // remove HTML tags
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // strip control chars
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
@@ -27,8 +30,52 @@ function cleanText(rawText: string, maxLength: number = 200): string {
 }
 
 /**
+ * Validates whether an IPv4/IPv6 address string is a safe public routable internet address.
+ * Rejects RFC1918, Loopback, Link-Local, Cloud Metadata, Multicast, and Reserved IPs.
+ */
+export function isPublicIpAddress(ip: string): boolean {
+  if (!ip || typeof ip !== 'string') return false;
+  const cleanIp = ip.trim().toLowerCase().replace(/^\[|\]$/g, '');
+
+  // IPv6 Checks
+  if (cleanIp.includes(':')) {
+    if (
+      cleanIp === '::1' ||
+      cleanIp === '::' ||
+      cleanIp.startsWith('fe80:') || // Link-local
+      cleanIp.startsWith('fc00:') || // Unique local
+      cleanIp.startsWith('fd00:') ||
+      cleanIp.startsWith('ff00:')    // Multicast
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  // IPv4 Checks
+  const parts = cleanIp.split('.').map((p) => parseInt(p, 10));
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
+    return false;
+  }
+
+  const [o1, o2] = parts;
+
+  if (o1 === 0) return false;                   // 0.0.0.0/8 Current network
+  if (o1 === 127) return false;                 // 127.0.0.0/8 Loopback
+  if (o1 === 10) return false;                  // 10.0.0.0/8 Private
+  if (o1 === 172 && o2 >= 16 && o2 <= 31) return false; // 172.16.0.0/12 Private
+  if (o1 === 192 && o2 === 168) return false;   // 192.168.0.0/16 Private
+  if (o1 === 169 && o2 === 254) return false;   // 169.254.0.0/16 Link-Local / Cloud Metadata
+  if (o1 === 100 && o2 >= 64 && o2 <= 127) return false; // 100.64.0.0/10 CGNAT
+  if (o1 >= 224 && o1 <= 239) return false;     // 224.0.0.0/4 Multicast
+  if (o1 >= 240) return false;                  // 240.0.0.0/4 Reserved / Broadcast
+
+  return true;
+}
+
+/**
  * Validates whether a target URL is safe from SSRF (Server-Side Request Forgery).
- * Blocks loopback, private IPv4/IPv6 subnets, link-local, cloud metadata IP, and non-standard web ports.
+ * Performs syntactic checks, port whitelist, and IP address validation.
  */
 export function isSafePublicUrl(targetUrl: string): boolean {
   try {
@@ -54,75 +101,42 @@ export function isSafePublicUrl(targetUrl: string): boolean {
       hostname.endsWith('.internal') ||
       hostname.endsWith('.corp') ||
       hostname.endsWith('.lan') ||
+      hostname.endsWith('.home') ||
       hostname === 'metadata.google.internal' ||
       hostname === 'instance-data'
     ) {
       return false;
     }
 
-    // 4. Block IPv6 loopback and private/link-local
-    if (
-      hostname.includes(':') ||
-      hostname.startsWith('[') ||
-      hostname === '::1' ||
-      hostname.startsWith('fe80:') ||
-      hostname.startsWith('fc00:') ||
-      hostname.startsWith('fd00:')
-    ) {
-      return false;
-    }
-
-    // 5. Block numeric representations and private/reserved IPv4 addresses
-    // Check if hostname is an IPv4 address
-    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    const ipMatch = hostname.match(ipv4Regex);
-
-    if (ipMatch) {
-      const octet1 = parseInt(ipMatch[1], 10);
-      const octet2 = parseInt(ipMatch[2], 10);
-      const octet3 = parseInt(ipMatch[3], 10);
-      const octet4 = parseInt(ipMatch[4], 10);
-
-      if (
-        octet1 > 255 ||
-        octet2 > 255 ||
-        octet3 > 255 ||
-        octet4 > 255
-      ) {
-        return false;
-      }
-
-      // Loopback: 127.0.0.0/8
-      if (octet1 === 127) return false;
-
-      // Current network: 0.0.0.0/8
-      if (octet1 === 0) return false;
-
-      // Private Network: 10.0.0.0/8
-      if (octet1 === 10) return false;
-
-      // Private Network: 172.16.0.0/12 (172.16.x.x - 172.31.x.x)
-      if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) return false;
-
-      // Private Network: 192.168.0.0/16
-      if (octet1 === 192 && octet2 === 168) return false;
-
-      // Cloud Metadata & Link-Local: 169.254.0.0/16 (e.g., AWS/GCP 169.254.169.254)
-      if (octet1 === 169 && octet2 === 254) return false;
-
-      // CGNAT: 100.64.0.0/10 (100.64.0.0 - 100.127.255.255)
-      if (octet1 === 100 && octet2 >= 64 && octet2 <= 127) return false;
-
-      // Multicast: 224.0.0.0/4 (224.0.0.0 - 239.255.255.255)
-      if (octet1 >= 224 && octet1 <= 239) return false;
-
-      // Reserved / Broadcast: 240.0.0.0/4, 255.255.255.255
-      if (octet1 >= 240) return false;
-    }
-
-    // Check for octal, decimal, or hex IP representation bypasses (e.g. 0177.0.0.1, 2130706433, 0x7f000001)
+    // 4. Block numeric IP representations, octal, hex bypasses
     if (/^(0x[0-9a-f]+|\d+)$/i.test(hostname) || /^0[0-7]+(\.0[0-7]+)*$/i.test(hostname)) {
       return false;
+    }
+
+    // 5. If hostname is a raw IPv4/IPv6 literal (including bracketed IPv6)
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':') || hostname.startsWith('[')) {
+      return isPublicIpAddress(hostname);
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves hostname to IP address and validates public routability to prevent DNS Rebinding
+ */
+export async function resolveAndValidateDns(hostname: string): Promise<boolean> {
+  try {
+    const cleanHost = hostname.replace(/^\[|\]$/g, '');
+    const records = await dns.promises.lookup(cleanHost, { all: true });
+    if (!records || records.length === 0) return false;
+
+    for (const record of records) {
+      if (!isPublicIpAddress(record.address)) {
+        return false;
+      }
     }
 
     return true;
@@ -150,9 +164,21 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
     return fallback;
   }
 
-  // 1. SSRF Gate: Verify the target URL does not resolve to internal or metadata infrastructure
+  // 1. Syntactic SSRF Check
   if (!isSafePublicUrl(normalizedUrl)) {
     console.warn(`[SSRF Prevention] Blocked scraping request to non-public target: ${normalizedUrl}`);
+    return fallback;
+  }
+
+  // 2. DNS Resolution Rebinding Check
+  try {
+    const parsed = new URL(normalizedUrl);
+    const isDnsSafe = await resolveAndValidateDns(parsed.hostname);
+    if (!isDnsSafe) {
+      console.warn(`[SSRF Prevention] DNS resolved to non-public IP for: ${parsed.hostname}`);
+      return fallback;
+    }
+  } catch {
     return fallback;
   }
 
@@ -168,16 +194,34 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
+      redirect: 'manual',
     });
 
     clearTimeout(timeoutId);
 
-    // 2. Validate Response
+    // If redirected, re-validate redirect target safely
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        let redirectUrl = location;
+        if (!location.startsWith('http')) {
+          redirectUrl = new URL(location, normalizedUrl).toString();
+        }
+        if (isSafePublicUrl(redirectUrl)) {
+          const redirectHost = new URL(redirectUrl).hostname;
+          if (await resolveAndValidateDns(redirectHost)) {
+            return scrapeUrlMetadata(redirectUrl);
+          }
+        }
+      }
+      return fallback;
+    }
+
     if (!response.ok) {
       return fallback;
     }
 
-    // 3. Content-Type Gate: Only process HTML responses (prevents processing raw binaries or internal APIs)
+    // 3. Content-Type Gate: Only process HTML responses
     const contentType = response.headers.get('content-type') || '';
     if (
       !contentType.includes('text/html') &&
@@ -187,7 +231,7 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
       return fallback;
     }
 
-    // 4. Memory-bounded body reader (max 256KB to avoid memory exhaustion / DoS)
+    // 4. Memory-bounded body reader (max 256KB)
     const maxBytes = 256 * 1024;
     let html = '';
 
@@ -240,7 +284,7 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
       description = cleanText(twitterDescMatch[1], 180);
     }
 
-    // 7. Extract Favicon / Touch Icon with XSS & Schema validation
+    // 7. Extract Favicon / Touch Icon
     let iconUrl = fallbackFavicon;
     const appleTouchIconMatch = html.match(/<link\s+[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i);
     const iconMatch = html.match(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']/i);
@@ -277,7 +321,6 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
       domain: displayDomain,
     };
   } catch (err) {
-    // Network / timeout error fallback
     return fallback;
   }
 }

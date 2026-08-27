@@ -4,12 +4,31 @@ import {
   updateAdminPassword,
   createAdminSessionToken,
   ADMIN_COOKIE_NAME,
-  isRequestAdminAuthenticated,
 } from '@/utils/adminAuth';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { recordAdminAuditLog } from '@/utils/adminAudit';
+import { getClientIp } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  const clientIp = getClientIp(req);
+
+  // Rate limit password change attempts
+  const rateLimit = checkRateLimit(
+    RATE_LIMITS.AUTH_CHANGE_PASS.action,
+    clientIp,
+    RATE_LIMITS.AUTH_CHANGE_PASS.limit,
+    RATE_LIMITS.AUTH_CHANGE_PASS.windowSeconds
+  );
+
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: `Too many password change attempts. Please wait ${rateLimit.resetSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': rateLimit.resetSeconds.toString() } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { currentPassword, newPassword, confirmPassword } = body;
@@ -46,14 +65,24 @@ export async function POST(req: NextRequest) {
     // 2. Authenticate current password
     const isCurrentValid = verifyAdminPassword(currentPassword);
     if (!isCurrentValid) {
+      await recordAdminAuditLog({
+        action: 'ADMIN_LOGIN_FAILED',
+        ipHash: clientIp,
+        reason: 'Failed current password check during password change attempt',
+      });
       return NextResponse.json(
         { error: 'Current password verification failed. Please try again.' },
         { status: 401 }
       );
     }
 
-    // 3. Update password securely
+    // 3. Update password securely and advance epoch
     await updateAdminPassword(newPassword);
+
+    await recordAdminAuditLog({
+      action: 'ADMIN_CHANGED_PASSWORD',
+      ipHash: clientIp,
+    });
 
     // 4. Issue updated session cookie
     const sessionToken = createAdminSessionToken();
@@ -74,7 +103,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[Admin Change Password Error]:', err);
     return NextResponse.json(
-      { error: err?.message || 'Failed to update admin password.' },
+      { error: 'Failed to update admin password.' },
       { status: 500 }
     );
   }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { Webhook } from 'standardwebhooks';
 import { isSafePublicUrl } from '@/utils/metadata';
+import { sanitizeString } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,13 +72,17 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Dodo Webhook] Verified event: ${eventType} (ID: ${webhookId})`);
 
-    // Handle payment succeeded event
+    const supabase = createAdminClient();
+
+    // -------------------------------------------------------------
+    // 1. Handle Payment Succeeded Event
+    // -------------------------------------------------------------
     if (eventType === 'payment.succeeded' || eventType === 'payment_succeeded' || data?.status === 'succeeded') {
       const paymentId = String(data?.payment_id || data?.id || '').trim();
       const metadata = data?.metadata || {};
 
       const rawUrl = metadata?.url;
-      const category = typeof metadata?.category === 'string' ? metadata.category.slice(0, 50) : 'Other';
+      const category = sanitizeString(metadata?.category || 'Other', 50);
       
       const parsedAmount = parseInt(String(metadata?.bid_amount || data?.total_amount || 0), 10);
       const bidAmountCents = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
@@ -85,8 +90,8 @@ export async function POST(req: NextRequest) {
       const isTopUp = metadata?.is_topup === 'true' || metadata?.is_topup === true;
       const existingBidId = typeof metadata?.existing_bid_id === 'string' ? metadata.existing_bid_id.trim() : '';
       
-      const title = typeof metadata?.title === 'string' ? metadata.title.slice(0, 100) : null;
-      const description = typeof metadata?.description === 'string' ? metadata.description.slice(0, 300) : null;
+      const title = sanitizeString(metadata?.title, 100) || null;
+      const description = sanitizeString(metadata?.description, 300) || null;
       
       let iconUrl = typeof metadata?.icon_url === 'string' ? metadata.icon_url.trim() : null;
       if (iconUrl && !isSafePublicUrl(iconUrl)) {
@@ -102,8 +107,6 @@ export async function POST(req: NextRequest) {
         console.warn('[Dodo Webhook] Invalid bid amount in verified metadata:', bidAmountCents);
         return NextResponse.json({ received: true, message: 'Invalid non-positive bid amount.' });
       }
-
-      const supabase = createAdminClient();
 
       // Idempotency check: Ensure payment intent is not re-processed
       if (paymentId) {
@@ -138,7 +141,7 @@ export async function POST(req: NextRequest) {
       if (targetBidId || isTopUp) {
         console.log(`[Dodo Webhook] Upgrading listing ${targetBidId || rawUrl} to $${bidAmountCents / 100}...`);
 
-        const { error: updateErr } = await supabase
+        const { data: updatedData, error: updateErr } = await supabase
           .from('bids')
           .update({
             amount: bidAmountCents,
@@ -150,11 +153,21 @@ export async function POST(req: NextRequest) {
             ...(iconUrl ? { icon_url: iconUrl } : {}),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', targetBidId);
+          .eq('id', targetBidId)
+          .select('id');
 
-        if (updateErr) {
-          console.error('[Dodo Webhook] Database Update Error:', updateErr);
-          throw updateErr;
+        if (updateErr || !updatedData || updatedData.length === 0) {
+          // If targeted ID was stale, update by URL
+          await supabase
+            .from('bids')
+            .update({
+              amount: bidAmountCents,
+              status: 'paid',
+              stripe_payment_intent_id: paymentId || null,
+              category,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('url', rawUrl);
         }
 
         console.log(`[Dodo Webhook] Listing upgraded successfully for ${rawUrl}!`);
@@ -199,11 +212,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // -------------------------------------------------------------
+    // 2. Handle Refund Succeeded / Dispute Created Events
+    // -------------------------------------------------------------
+    if (
+      eventType === 'refund.succeeded' ||
+      eventType === 'payment.refunded' ||
+      eventType === 'dispute.opened' ||
+      eventType === 'dispute.created'
+    ) {
+      const paymentId = String(data?.payment_id || data?.id || '').trim();
+      if (paymentId) {
+        console.log(`[Dodo Webhook] Processing refund/dispute event ${eventType} for payment ${paymentId}`);
+        await supabase
+          .from('bids')
+          .update({
+            status: 'refunded',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_payment_intent_id', paymentId);
+      }
+    }
+
     return NextResponse.json({ received: true, status: 'success' });
   } catch (err: any) {
     console.error('[Dodo Webhook Security Handler Error]:', err);
     return NextResponse.json(
-      { error: err?.message || 'Webhook security processing failed.' },
+      { error: 'Webhook processing failed.' },
       { status: 500 }
     );
   }

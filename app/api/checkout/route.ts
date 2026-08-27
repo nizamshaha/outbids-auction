@@ -3,10 +3,13 @@ import { CreateCheckoutPayload, CheckoutResponse } from '@/types/bid';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
 import { scrapeUrlMetadata, isSafePublicUrl } from '@/utils/metadata';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+
+import { getClientIp, sanitizeString } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_BID_AMOUNT_DOLLARS = 1000000; // $1,000,000 max single bid limit to prevent numeric overflow
+const MAX_BID_AMOUNT_DOLLARS = 1000000; // $1,000,000 max single bid limit
 const MIN_BID_AMOUNT_DOLLARS = 1;       // $1.00 minimum bid
 
 function getDodoBaseUrl(): string {
@@ -17,6 +20,8 @@ function getDodoBaseUrl(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const clientIp = getClientIp(req);
+
   try {
     let body: CreateCheckoutPayload;
 
@@ -30,8 +35,27 @@ export async function POST(req: NextRequest) {
     }
 
     const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false } = body;
+    const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
 
-    // 1. Strict URL validation and normalization
+    // 1. Rate Limiting Protection
+    const rateLimitConfig = isFreeSubmission ? RATE_LIMITS.CHECKOUT_FREE : RATE_LIMITS.CHECKOUT_PAID;
+    const rateLimit = checkRateLimit(rateLimitConfig.action, clientIp, rateLimitConfig.limit, rateLimitConfig.windowSeconds);
+
+    if (!rateLimit.success) {
+      return NextResponse.json<CheckoutResponse>(
+        {
+          error: isFreeSubmission
+            ? `Free tier limit reached. Please wait ${Math.ceil(rateLimit.resetSeconds / 60)} minute(s) or upgrade to a paid bid.`
+            : `Too many checkout requests. Please wait ${rateLimit.resetSeconds} second(s) before trying again.`,
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': rateLimit.resetSeconds.toString() },
+        }
+      );
+    }
+
+    // 2. Strict URL validation and normalization
     if (!url || typeof url !== 'string') {
       return NextResponse.json<CheckoutResponse>(
         { error: 'A valid website URL or @handle is required.' },
@@ -50,7 +74,7 @@ export async function POST(req: NextRequest) {
     // SSRF validation on normalized URL
     if (!isSafePublicUrl(normalizedUrl)) {
       return NextResponse.json<CheckoutResponse>(
-        { error: 'Submitted URL cannot point to internal or restricted IP addresses.' },
+        { error: 'Submitted destination URL is not accessible or points to restricted infrastructure.' },
         { status: 400 }
       );
     }
@@ -60,7 +84,7 @@ export async function POST(req: NextRequest) {
     const sanitizedTitleInput = typeof title === 'string' ? title.trim().slice(0, 100) : '';
     const sanitizedDescInput = typeof description === 'string' ? description.trim().slice(0, 300) : '';
 
-    // 2. Scrape metadata safely with SSRF protection & timeouts
+    // 3. Scrape metadata safely with SSRF & DNS rebinding protection
     const scraped = await scrapeUrlMetadata(normalizedUrl);
     const finalTitle = sanitizedTitleInput || scraped.title || displayDomain;
     const finalDescription = sanitizedDescInput || scraped.description || null;
@@ -68,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // 3. Query existing listing for top-up calculation
+    // 4. Query existing listing for top-up delta calculation
     const { data: existingBid, error: queryError } = await supabase
       .from('bids')
       .select('id, amount, status')
@@ -85,7 +109,6 @@ export async function POST(req: NextRequest) {
     }
 
     const existingAmountCents = existingBid ? existingBid.amount : 0;
-    const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
 
     // -------------------------------------------------------------
     // A. FREEMIUM / FREE TIER ($0) SUBMISSION
@@ -116,7 +139,6 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (insertError) {
-        // Fallback for minimal core schema
         const fallback = await supabase
           .from('bids')
           .insert({
@@ -256,7 +278,7 @@ export async function POST(req: NextRequest) {
 
     if (!dodoRes.ok || (!dodoData.payment_link && !dodoData.url)) {
       console.error('[Dodo Payments API Error]:', dodoData);
-      throw new Error(dodoData.message || dodoData.error || 'Failed to generate Dodo Payments checkout session.');
+      throw new Error(dodoData.message || dodoData.error || 'Failed to generate payment session.');
     }
 
     const checkoutUrl = dodoData.payment_link || dodoData.url;
@@ -272,7 +294,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('[Checkout Route Security Error]:', error);
     return NextResponse.json<CheckoutResponse>(
-      { error: error?.message || 'An unexpected error occurred during checkout initialization.' },
+      { error: 'An unexpected error occurred while creating your checkout session. Please try again.' },
       { status: 500 }
     );
   }

@@ -3,8 +3,17 @@ import { isRequestAdminAuthenticated } from '@/utils/adminAuth';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
 import { scrapeUrlMetadata } from '@/utils/metadata';
+import { recordAdminAuditLog } from '@/utils/adminAudit';
 
 export const dynamic = 'force-dynamic';
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    '127.0.0.1'
+  );
+}
 
 export async function POST(req: NextRequest) {
   if (!isRequestAdminAuthenticated(req)) {
@@ -26,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const normalizedUrl = urlCheck.normalizedUrl;
     const displayDomain = urlCheck.displayDomain;
-    const amountCents = Math.max(0, Math.round(parseFloat(amountInDollars) * 100));
+    const amountCents = Math.max(0, Math.min(100000000, Math.round(parseFloat(amountInDollars) * 100)));
 
     // Scrape metadata if title or description were left blank
     const scraped = await scrapeUrlMetadata(normalizedUrl);
@@ -39,7 +48,7 @@ export async function POST(req: NextRequest) {
     // Check if URL already exists
     const { data: existingBid } = await supabase
       .from('bids')
-      .select('id')
+      .select('*')
       .eq('url', normalizedUrl)
       .limit(1)
       .maybeSingle();
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
         .update({
           amount: amountCents,
           status: 'paid',
-          category,
+          category: typeof category === 'string' ? category.slice(0, 50) : 'Other',
           title: finalTitle,
           description: finalDescription,
           icon_url: finalIconUrl,
@@ -64,6 +73,15 @@ export async function POST(req: NextRequest) {
       if (updateError) {
         throw updateError;
       }
+
+      await recordAdminAuditLog({
+        action: 'ADMIN_SEEDED_BID',
+        targetId: existingBid.id,
+        targetUrl: normalizedUrl,
+        previousState: existingBid,
+        newState: updated,
+        ipHash: getClientIp(req),
+      });
 
       return NextResponse.json({
         success: true,
@@ -80,7 +98,7 @@ export async function POST(req: NextRequest) {
         url: normalizedUrl,
         amount: amountCents,
         status: 'paid',
-        category,
+        category: typeof category === 'string' ? category.slice(0, 50) : 'Other',
         title: finalTitle,
         description: finalDescription,
         icon_url: finalIconUrl,
@@ -91,7 +109,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertError) {
-      // Fallback insert if rich columns are not in schema
       const fallback = await supabase
         .from('bids')
         .insert({
@@ -108,6 +125,14 @@ export async function POST(req: NextRequest) {
         throw fallback.error;
       }
 
+      await recordAdminAuditLog({
+        action: 'ADMIN_SEEDED_BID',
+        targetId: fallback.data.id,
+        targetUrl: normalizedUrl,
+        newState: fallback.data,
+        ipHash: getClientIp(req),
+      });
+
       return NextResponse.json({
         success: true,
         action: 'created_fallback',
@@ -115,6 +140,14 @@ export async function POST(req: NextRequest) {
         message: `Successfully seeded ${displayDomain} for $${amountInDollars}!`,
       });
     }
+
+    await recordAdminAuditLog({
+      action: 'ADMIN_SEEDED_BID',
+      targetId: newBid.id,
+      targetUrl: normalizedUrl,
+      newState: newBid,
+      ipHash: getClientIp(req),
+    });
 
     return NextResponse.json({
       success: true,
@@ -124,6 +157,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[Admin Seed Error]:', err);
-    return NextResponse.json({ error: err?.message || 'Failed to seed listing.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to seed listing.' }, { status: 500 });
   }
 }

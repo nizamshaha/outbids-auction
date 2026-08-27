@@ -3,7 +3,7 @@
 import React from 'react';
 import { Bid } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
-import { ExternalLink, ListOrdered, ArrowUpRight } from 'lucide-react';
+import { ExternalLink, ListOrdered, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
 interface RankingsTableProps {
   bids: Bid[];
@@ -57,15 +57,24 @@ export function RankingsTable({ bids }: RankingsTableProps) {
                     />
                   </div>
 
-                  <a
-                    href={normalizedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-gray-200 hover:text-indigo-400 transition-colors truncate flex items-center gap-1.5"
-                  >
-                    <span className="truncate max-w-[180px] sm:max-w-sm md:max-w-md">{displayDomain}</span>
-                    <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-indigo-400 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
-                  </a>
+                  <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <a
+                      href={normalizedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold text-gray-200 hover:text-indigo-400 transition-colors truncate flex items-center gap-1.5"
+                    >
+                      <span className="truncate max-w-[180px] sm:max-w-sm md:max-w-md">{displayDomain}</span>
+                      <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-indigo-400 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
+                    </a>
+
+                    {bid.status === 'paid' && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        <span>Verified</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Right: Amount */}

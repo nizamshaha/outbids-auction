@@ -3,7 +3,7 @@
 import React from 'react';
 import { Bid } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
-import { Crown, Medal, ExternalLink, Globe } from 'lucide-react';
+import { Crown, Medal, ExternalLink, Globe, CheckCircle2 } from 'lucide-react';
 
 interface LeaderboardItemProps {
   bid: Bid;
@@ -84,16 +84,25 @@ export function LeaderboardItem({ bid, rank }: LeaderboardItemProps) {
 
           {/* Link / URL */}
           <div className="min-w-0">
-            <a
-              href={normalizedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-bold text-gray-100 hover:text-indigo-400 text-base sm:text-lg transition-colors group-hover:underline underline-offset-4 truncate max-w-[200px] sm:max-w-md"
-              title={normalizedUrl}
-            >
-              <span className="truncate">{displayDomain}</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
-            </a>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <a
+                href={normalizedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-bold text-gray-100 hover:text-indigo-400 text-base sm:text-lg transition-colors group-hover:underline underline-offset-4 truncate max-w-[200px] sm:max-w-md"
+                title={normalizedUrl}
+              >
+                <span className="truncate">{displayDomain}</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
+              </a>
+
+              {bid.status === 'paid' && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                  <CheckCircle2 className="w-2.5 h-2.5" />
+                  <span>Verified</span>
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-gray-400">{formattedDate}</p>
           </div>
         </div>

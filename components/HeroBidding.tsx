@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { sanitizeAndNormalizeUrl, getFaviconUrl, formatCentsToDollars } from '@/utils/formatters';
 import { BidCategory, PLATFORM_CATEGORIES } from '@/types/bid';
-import { ArrowRight, Loader2, AlertCircle, Sparkles, CheckCircle2, Zap, Gift, Tag, Link as LinkIcon, DollarSign } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Sparkles, CheckCircle2, Zap, Gift, Tag, Link as LinkIcon, DollarSign, Trophy } from 'lucide-react';
 
 interface HeroBiddingProps {
   highestBidCents: number;
@@ -144,6 +144,12 @@ export function HeroBidding({
   return (
     <section className="py-16 md:py-20 border-b border-outline-variant text-center px-4 bg-surface-container-low">
       <div className="max-w-4xl mx-auto">
+        {/* Sahara Live Race Pill Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-surface border border-outline-variant text-primary mb-5 shadow-xs">
+          <Trophy className="w-3.5 h-3.5 text-primary" />
+          <span className="font-display">Live Attention Marketplace</span>
+        </div>
+
         {/* Sahara Headline */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 font-display text-on-surface tracking-tight">
           Claim <span className="text-red-500 font-display">#1</span> for <span className="text-primary font-display">${claimTopDollars}</span> +

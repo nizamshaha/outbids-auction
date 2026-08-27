@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Bid } from '@/types/bid';
 import { formatCentsToDollars, sanitizeAndNormalizeUrl, getFaviconUrl } from '@/utils/formatters';
 import { isWatchlisted, toggleWatchlist, getRankDelta, RankDeltaInfo } from '@/utils/watchlist';
-import { Crown, Medal, Sparkles, ArrowUpRight, MousePointerClick, Tag, Star } from 'lucide-react';
+import { Crown, Medal, Sparkles, ArrowUpRight, MousePointerClick, Tag, Star, CheckCircle2 } from 'lucide-react';
 
 interface TopPodiumProps {
   topBids: Bid[];
@@ -123,15 +123,23 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
                         />
                       </div>
                       <div className="min-w-0">
-                        <a
-                          href={`/go/${second.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-bold text-white hover:text-slate-300 transition-colors flex items-center gap-1.5 truncate group"
-                        >
-                          <span className="truncate">{second.title || displayDomain}</span>
-                          <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0" />
-                        </a>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <a
+                            href={`/go/${second.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-bold text-white hover:text-slate-300 transition-colors flex items-center gap-1.5 truncate group"
+                          >
+                            <span className="truncate">{second.title || displayDomain}</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0" />
+                          </a>
+                          {second.status === 'paid' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-slate-300" />
+                              <span>Verified</span>
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate">{displayDomain}</p>
                       </div>
                     </div>
@@ -228,15 +236,23 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <a
-                          href={`/go/${first.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-base sm:text-lg font-extrabold text-white hover:text-orange-300 transition-colors flex items-center gap-1.5 truncate group"
-                        >
-                          <span className="truncate">{first.title || displayDomain}</span>
-                          <ArrowUpRight className="w-4 h-4 text-orange-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
-                        </a>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <a
+                            href={`/go/${first.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-base sm:text-lg font-extrabold text-white hover:text-orange-300 transition-colors flex items-center gap-1.5 truncate group"
+                          >
+                            <span className="truncate">{first.title || displayDomain}</span>
+                            <ArrowUpRight className="w-4 h-4 text-orange-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
+                          </a>
+                          {first.status === 'paid' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40 shrink-0">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-orange-300" />
+                              <span>Verified</span>
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-orange-200/80 font-medium truncate">{displayDomain}</p>
                       </div>
                     </div>
@@ -325,15 +341,23 @@ export function TopPodium({ topBids, onSelectBidAmount, onWatchlistChanged }: To
                         />
                       </div>
                       <div className="min-w-0">
-                        <a
-                          href={`/go/${third.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-bold text-white hover:text-amber-300 transition-colors flex items-center gap-1.5 truncate group"
-                        >
-                          <span className="truncate">{third.title || displayDomain}</span>
-                          <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0" />
-                        </a>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <a
+                            href={`/go/${third.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-bold text-white hover:text-amber-300 transition-colors flex items-center gap-1.5 truncate group"
+                          >
+                            <span className="truncate">{third.title || displayDomain}</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0" />
+                          </a>
+                          {third.status === 'paid' && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-950/80 text-amber-400 border border-amber-800/80 shrink-0">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-amber-400" />
+                              <span>Verified</span>
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate">{displayDomain}</p>
                       </div>
                     </div>

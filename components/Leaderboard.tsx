@@ -17,6 +17,8 @@ import {
   RefreshCw,
   Trophy,
   Flame,
+  Share2,
+  Check,
 } from 'lucide-react';
 
 interface LeaderboardProps {
@@ -91,6 +93,7 @@ export function Leaderboard({
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [watchlistVersion, setWatchlistVersion] = useState(0);
+  const [copiedGlobalShare, setCopiedGlobalShare] = useState(false);
 
   const onStatsUpdateRef = useRef(onStatsUpdate);
   const onConnectionChangeRef = useRef(onConnectionChange);
@@ -250,6 +253,33 @@ export function Leaderboard({
 
   const handleWatchlistChanged = () => {
     setWatchlistVersion((v) => v + 1);
+  };
+
+  const handleGlobalShare = async () => {
+    const shareText = `I just claimed my spot on the outbids.auction leaderboard. Outbid me if you can: https://outbids.auction`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Outbids.auction — Live Marketplace for Digital Visibility',
+          text: shareText,
+          url: 'https://outbids.auction',
+        });
+        return;
+      } catch (err) {
+        // Fallback to clipboard
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setCopiedGlobalShare(true);
+        setTimeout(() => setCopiedGlobalShare(false), 2200);
+      } catch (err) {
+        console.error('Clipboard copy failed', err);
+      }
+    }
   };
 
   // Dual-Board Engine: Filter and sort bids based on activeTab, category, and search query
@@ -425,13 +455,36 @@ export function Leaderboard({
             />
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-text-muted font-medium w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-2.5 text-xs text-text-muted font-medium w-full sm:w-auto justify-between sm:justify-end">
             <span>
               Showing <strong className="text-on-surface">{filteredBids.length}</strong> listings
               {selectedCategory !== 'All' && (
                 <span> in <strong className="text-primary font-bold">{selectedCategory}</strong></span>
               )}
             </span>
+
+            {/* Share Board Button */}
+            <button
+              onClick={handleGlobalShare}
+              className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                copiedGlobalShare
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                  : 'border-outline-variant bg-surface hover:bg-surface-container text-text-main'
+              }`}
+              title="Share Leaderboard"
+            >
+              {copiedGlobalShare ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-primary" />
+                  <span>Share Board</span>
+                </>
+              )}
+            </button>
 
             <button
               onClick={() => fetchPaidBids()}

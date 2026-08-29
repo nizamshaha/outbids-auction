@@ -22,13 +22,12 @@ export const metadata: Metadata = {
   creator: 'Outbids.auction',
   icons: {
     icon: [
-      { url: '/assets/icon.png', sizes: '32x32', type: 'image/png' },
-      { url: '/assets/icon.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon.ico', sizes: '48x48' },
     ],
-    shortcut: '/assets/icon.png',
+    shortcut: '/icon.png',
     apple: [
-      { url: '/assets/icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-icon.png', sizes: '192x192', type: 'image/png' },
     ],
   },
   openGraph: {

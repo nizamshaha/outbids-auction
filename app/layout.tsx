@@ -21,14 +21,8 @@ export const metadata: Metadata = {
   authors: [{ name: 'Outbids.auction' }],
   creator: 'Outbids.auction',
   icons: {
-    icon: [
-      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon.ico', sizes: '48x48' },
-    ],
-    shortcut: '/icon.png',
-    apple: [
-      { url: '/apple-icon.png', sizes: '192x192', type: 'image/png' },
-    ],
+    icon: '/icon.png',
+    apple: '/icon.png',
   },
   openGraph: {
     title: 'Outbids.auction | A live marketplace for digital visibility',

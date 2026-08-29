@@ -3,7 +3,7 @@ Add-Type -AssemblyName System.Drawing
 function Create-Favicon {
     param (
         [string]$outputPath,
-        [int]$size = 192
+        [int]$size = 512
     )
 
     $bmp = New-Object System.Drawing.Bitmap($size, $size)
@@ -22,7 +22,7 @@ function Create-Favicon {
     $creamColor = [System.Drawing.ColorTranslator]::FromHtml("#faf5ee")
 
     $brushBg = New-Object System.Drawing.SolidBrush($terraColor)
-    $rect = New-Object System.Drawing.Rectangle(2, 2, ($size - 4), ($size - 4))
+    $rect = New-Object System.Drawing.Rectangle(4, 4, ($size - 8), ($size - 8))
     $radius = [int]($size * 0.22) # smooth squircle corner
     
     # Draw rounded rectangle
@@ -37,10 +37,10 @@ function Create-Favicon {
     $g.FillPath($brushBg, $path)
 
     # Subtle inner border for crisp depth
-    $borderPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(60, 255, 255, 255), [float]1.5)
+    $borderPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(60, 255, 255, 255), [float]3.0)
     $g.DrawPath($borderPen, $path)
 
-    # 2. Bold "O" Outer Ring (representing Outbids / Spotlight / Billboard)
+    # 2. Bold "O" Outer Ring
     $oWidth = [float]($size * 0.13)
     $oPen = New-Object System.Drawing.Pen($creamColor, $oWidth)
     
@@ -50,20 +50,19 @@ function Create-Favicon {
     $g.DrawEllipse($oPen, $oX, $oY, $oSize, $oSize)
 
     # 3. Dynamic 45-degree Auction Gavel / Outbid Spark at Center
-    # Translate & Rotate to 45 degrees around center for perfect symmetry
     $centerX = [float]($size / 2.0)
     $centerY = [float]($size / 2.0)
     
     $g.TranslateTransform($centerX, $centerY)
     $g.RotateTransform(45)
 
-    # Gavel Handle (vertical in rotated space, extending downwards from center)
+    # Gavel Handle
     $handlePen = New-Object System.Drawing.Pen($creamColor, [float]($size * 0.08))
     $handlePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $handlePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $g.DrawLine($handlePen, 0, [float](-$size * 0.04), 0, [float]($size * 0.22))
 
-    # Gavel Head (horizontal bar across the top of the handle)
+    # Gavel Head
     $headBrush = New-Object System.Drawing.SolidBrush($creamColor)
     $headW = [float]($size * 0.26)
     $headH = [float]($size * 0.10)
@@ -103,10 +102,8 @@ function Create-Favicon {
     Write-Output "Generated: $outputPath (${size}x${size})"
 }
 
-# Generate 192x192 PNGs
-Create-Favicon -outputPath "d:\cspython\Bidout\app\icon.png" -size 192
-Create-Favicon -outputPath "d:\cspython\Bidout\app\apple-icon.png" -size 192
-Create-Favicon -outputPath "d:\cspython\Bidout\public\icon.png" -size 192
-Create-Favicon -outputPath "d:\cspython\Bidout\public\apple-icon.png" -size 192
-Create-Favicon -outputPath "d:\cspython\Bidout\public\assets\icon.png" -size 192
-Create-Favicon -outputPath "d:\cspython\Bidout\public\favicon.ico" -size 48
+# Generate high-resolution 512x512 icons for App Router
+Create-Favicon -outputPath "d:\cspython\Bidout\app\icon.png" -size 512
+Create-Favicon -outputPath "d:\cspython\Bidout\app\apple-icon.png" -size 512
+Create-Favicon -outputPath "d:\cspython\Bidout\public\icon.png" -size 512
+Create-Favicon -outputPath "d:\cspython\Bidout\public\apple-icon.png" -size 512

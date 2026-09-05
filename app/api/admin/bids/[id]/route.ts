@@ -11,6 +11,12 @@ import { PLATFORM_CATEGORIES } from '@/types/bid';
 
 export const dynamic = 'force-dynamic';
 
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
 const ALLOWED_STATUSES = new Set(['paid', 'pending', 'failed', 'refunded', 'disputed']);
 
 export async function DELETE(
@@ -19,7 +25,10 @@ export async function DELETE(
 ) {
   // 1. Cross-Origin Request Validation (CSRF mitigation)
   if (!validateRequestOrigin(req)) {
-    return NextResponse.json({ error: 'Forbidden: Cross-origin request rejected.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden: Cross-origin request rejected.' },
+      { status: 403, headers: NO_CACHE_HEADERS }
+    );
   }
 
   // 2. Strictly verify admin authentication session

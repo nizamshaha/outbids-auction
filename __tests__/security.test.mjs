@@ -1,11 +1,12 @@
 import assert from 'assert';
 import { sanitizeAndNormalizeUrl, formatCentsToDollars } from '../utils/formatters.ts';
 import { isSafePublicUrl, isPublicIpAddress, resolveAndValidateDns } from '../utils/metadata.ts';
-import { checkRateLimit } from '../utils/rateLimit.ts';
+import { checkRateLimit, checkProgressiveLockout, recordFailedAuthAttempt, resetAuthAttempts } from '../utils/rateLimit.ts';
 import {
   verifyAdminPassword,
   createAdminSessionToken,
   verifyAdminSessionToken,
+  ADMIN_SESSION_TTL_SECONDS,
 } from '../utils/adminAuth.ts';
 import { sanitizeString, getClientIp, isValidUuid, validateRequestOrigin } from '../utils/securityUtils.ts';
 import { PLATFORM_CATEGORIES } from '../types/bid.ts';
@@ -457,6 +458,79 @@ console.log('\n--- 14. DNS Resolution SSRF Defense ---');
 await runAsyncTest('Rejects localhost and loopback through DNS resolution check', async () => {
   const isSafe = await resolveAndValidateDns('localhost');
   assert.strictEqual(isSafe, false);
+});
+
+// -----------------------------------------------------------------
+// 15. Progressive 15-Minute Brute-Force Lockout Defense
+// -----------------------------------------------------------------
+console.log('\n--- 15. Progressive Brute-Force Lockout Defense ---');
+
+test('Enforces 15-minute lockout on 5 consecutive failed authentication attempts', () => {
+  const testIp = '198.51.100.42';
+  resetAuthAttempts(testIp);
+
+  // First 4 failures do not trigger lockout
+  for (let i = 1; i <= 4; i++) {
+    const res = recordFailedAuthAttempt(testIp);
+    assert.strictEqual(res.isLocked, false);
+    assert.strictEqual(res.count, i);
+  }
+
+  // 5th failure triggers 15-minute (900s) lockout
+  const fifthAttempt = recordFailedAuthAttempt(testIp);
+  assert.strictEqual(fifthAttempt.isLocked, true);
+  assert.strictEqual(fifthAttempt.count, 5);
+  assert.strictEqual(fifthAttempt.remainingSeconds, 900);
+
+  // Subsequent check shows lockout active
+  const checkStatus = checkProgressiveLockout(testIp);
+  assert.strictEqual(checkStatus.isLocked, true);
+  assert.ok(checkStatus.remainingSeconds > 0 && checkStatus.remainingSeconds <= 900);
+
+  // Successful login resets lockout
+  resetAuthAttempts(testIp);
+  assert.strictEqual(checkProgressiveLockout(testIp).isLocked, false);
+});
+
+// -----------------------------------------------------------------
+// 16. User-Agent Session Binding & Anti-Hijacking
+// -----------------------------------------------------------------
+console.log('\n--- 16. User-Agent Session Binding & Anti-Hijacking ---');
+
+test('Binds session token to client User-Agent and rejects altered client environments', () => {
+  const validUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0';
+  const attackerUserAgent = 'python-requests/2.31.0';
+  const spoofedBrowserUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1';
+
+  const token = createAdminSessionToken(validUserAgent);
+
+  // Valid with matching User-Agent
+  assert.strictEqual(verifyAdminSessionToken(token, validUserAgent), true);
+
+  // Strictly rejected with altered User-Agent (stolen cookie replay attempt)
+  assert.strictEqual(verifyAdminSessionToken(token, attackerUserAgent), false);
+  assert.strictEqual(verifyAdminSessionToken(token, spoofedBrowserUa), false);
+  assert.strictEqual(verifyAdminSessionToken(token, ''), false);
+});
+
+// -----------------------------------------------------------------
+// 17. 12-Hour Session Expiration Boundary
+// -----------------------------------------------------------------
+console.log('\n--- 17. 12-Hour Session Expiration Boundary ---');
+
+test('Rejects tokens exceeding the 12-hour session lifespan', () => {
+  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+  const now = Math.floor(Date.now() / 1000);
+  const thirteenHoursAgo = now - 13 * 60 * 60; // 13 hours old
+
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const uaHash = crypto.createHash('sha256').update(userAgent).digest('hex').slice(0, 16);
+  const secret = process.env.ADMIN_PASSWORD || 'outbids_admin_secure_secret_2026';
+  const payload = `admin_session_${thirteenHoursAgo}_${nonce}_${uaHash}`;
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  const expiredToken = `${thirteenHoursAgo}.${nonce}.${uaHash}.${signature}`;
+
+  assert.strictEqual(verifyAdminSessionToken(expiredToken, userAgent), false);
 });
 
 console.log('\n============================================================');

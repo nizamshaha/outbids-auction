@@ -128,17 +128,62 @@ export default function AdminDashboardPage() {
     }
   }, [isAuthenticated, loadBids]);
 
+  // Handle Logout
+  const handleLogout = useCallback(async (reason?: string) => {
+    try {
+      await fetch('/api/admin/auth/logout', { method: 'POST' });
+    } catch {
+      // Non-fatal if offline
+    } finally {
+      setIsAuthenticated(false);
+      setBids([]);
+      setStats(null);
+      setPasswordInput('');
+      if (reason && typeof reason === 'string') {
+        setAuthError(reason);
+      }
+    }
+  }, []);
+
+  // 15-Minute Automatic Inactivity Auto-Logout (Anti-Hack protection)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let timeoutId: NodeJS.Timeout;
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+    const handleUserActivity = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleLogout('Session expired: Locked after 15 minutes of inactivity.');
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const trackedEvents = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    trackedEvents.forEach((evt) => window.addEventListener(evt, handleUserActivity, { passive: true }));
+    handleUserActivity();
+
+    return () => {
+      clearTimeout(timeoutId);
+      trackedEvents.forEach((evt) => window.removeEventListener(evt, handleUserActivity));
+    };
+  }, [isAuthenticated, handleLogout]);
+
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError(null);
 
+    const submittedPassword = passwordInput;
+    // Wipe password from memory/state immediately upon form submission
+    setPasswordInput('');
+
     try {
       const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: passwordInput }),
+        body: JSON.stringify({ password: submittedPassword }),
       });
 
       const data = await res.json();
@@ -147,7 +192,6 @@ export default function AdminDashboardPage() {
       }
 
       setIsAuthenticated(true);
-      setPasswordInput('');
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed.');
     } finally {
@@ -216,14 +260,6 @@ export default function AdminDashboardPage() {
     } finally {
       setEditLoading(false);
     }
-  };
-
-  // Handle Logout
-  const handleLogout = async () => {
-    await fetch('/api/admin/auth/logout', { method: 'POST' });
-    setIsAuthenticated(false);
-    setBids([]);
-    setStats(null);
   };
 
   // Handle Seeding
@@ -450,7 +486,7 @@ export default function AdminDashboardPage() {
             </a>
 
             <button
-              onClick={handleLogout}
+              onClick={() => handleLogout()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/80 border border-red-500/40 text-red-200 hover:bg-red-900/80 text-xs font-bold transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />

@@ -104,3 +104,77 @@ export const RATE_LIMITS = {
   CLICK_REDIRECT: { action: 'click_redirect', limit: 60, windowSeconds: 60 },
   ADMIN_ACTION: { action: 'admin_action', limit: 30, windowSeconds: 60 },
 };
+
+interface LockoutRecord {
+  failures: number;
+  lockedUntil: number;
+}
+
+const lockoutStore = new Map<string, LockoutRecord>();
+
+export const LOCKOUT_CONFIG = {
+  MAX_FAILURES_BEFORE_LOCKOUT: 5,
+  LOCKOUT_DURATION_SECONDS: 15 * 60, // 15 minutes
+};
+
+/**
+ * Checks if an identifier (IP address) is currently in a progressive security lockout
+ */
+export function checkProgressiveLockout(identifier: string): { isLocked: boolean; remainingSeconds: number } {
+  const now = Date.now();
+  const key = getRateLimitKey('auth_lockout', identifier);
+  const record = lockoutStore.get(key);
+
+  if (!record) {
+    return { isLocked: false, remainingSeconds: 0 };
+  }
+
+  if (record.lockedUntil > now) {
+    const remainingSeconds = Math.max(1, Math.ceil((record.lockedUntil - now) / 1000));
+    return { isLocked: true, remainingSeconds };
+  }
+
+  return { isLocked: false, remainingSeconds: 0 };
+}
+
+/**
+ * Records a failed authentication attempt. Triggers a 15-minute lockout upon 5 consecutive failures.
+ */
+export function recordFailedAuthAttempt(identifier: string): { count: number; isLocked: boolean; remainingSeconds: number } {
+  const now = Date.now();
+  const key = getRateLimitKey('auth_lockout', identifier);
+  const record = lockoutStore.get(key) || { failures: 0, lockedUntil: 0 };
+
+  // If previous lockout expired, reset counter
+  if (record.lockedUntil > 0 && record.lockedUntil <= now) {
+    record.failures = 0;
+    record.lockedUntil = 0;
+  }
+
+  record.failures += 1;
+
+  if (record.failures >= LOCKOUT_CONFIG.MAX_FAILURES_BEFORE_LOCKOUT) {
+    record.lockedUntil = now + LOCKOUT_CONFIG.LOCKOUT_DURATION_SECONDS * 1000;
+    lockoutStore.set(key, record);
+    return {
+      count: record.failures,
+      isLocked: true,
+      remainingSeconds: LOCKOUT_CONFIG.LOCKOUT_DURATION_SECONDS,
+    };
+  }
+
+  lockoutStore.set(key, record);
+  return {
+    count: record.failures,
+    isLocked: false,
+    remainingSeconds: 0,
+  };
+}
+
+/**
+ * Resets the failed attempts counter upon successful authentication
+ */
+export function resetAuthAttempts(identifier: string): void {
+  const key = getRateLimitKey('auth_lockout', identifier);
+  lockoutStore.delete(key);
+}

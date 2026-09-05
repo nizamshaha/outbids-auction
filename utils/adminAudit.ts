@@ -3,6 +3,8 @@ import { createAdminClient } from '@/utils/supabase/admin';
 export type AdminAuditEventType =
   | 'ADMIN_LOGIN_SUCCESS'
   | 'ADMIN_LOGIN_FAILED'
+  | 'ADMIN_LOCKOUT_TRIGGERED'
+  | 'ADMIN_LOGOUT'
   | 'ADMIN_CHANGED_PASSWORD'
   | 'ADMIN_SEEDED_BID'
   | 'ADMIN_UPDATED_BID'

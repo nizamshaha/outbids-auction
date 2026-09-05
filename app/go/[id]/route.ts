@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
-import { getClientIp } from '@/utils/securityUtils';
+import { getClientIp, isValidUuid } from '@/utils/securityUtils';
+import { isSafePublicUrl } from '@/utils/metadata';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function GET(
     req.nextUrl.origin ||
     'https://outbids.auction';
 
-  if (!bidId) {
+  if (!bidId || !isValidUuid(bidId)) {
     return NextResponse.redirect(siteUrl);
   }
 
@@ -52,6 +53,12 @@ export async function GET(
       bid.url.startsWith('http://') || bid.url.startsWith('https://')
         ? bid.url
         : `https://${bid.url}`;
+
+    // Validate destination safety before redirecting (anti-open redirect / anti-internal SSRF)
+    if (!isSafePublicUrl(destinationUrl)) {
+      console.warn(`[Tracked Redirect Security] Blocked redirect to unsafe/private destination: ${destinationUrl}`);
+      return NextResponse.redirect(siteUrl);
+    }
 
     // 2. Filter out bots and automated crawlers from inflating click stats
     const userAgent = req.headers.get('user-agent') || '';

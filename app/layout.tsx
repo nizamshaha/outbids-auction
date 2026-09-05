@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   creator: 'Outbids.auction',
   icons: {
     icon: '/icon.png',
-    apple: '/icon.png',
+    apple: '/apple-icon.png',
   },
   openGraph: {
     title: 'Outbids.auction | A live marketplace for digital visibility',

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
-import { getClientIp } from '@/utils/securityUtils';
+import { getClientIp, isValidUuid } from '@/utils/securityUtils';
 import crypto from 'crypto';
+import { isSafePublicUrl } from '@/utils/metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,32 +18,36 @@ const BOT_USER_AGENT_PATTERN =
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const bidId = searchParams.get('id');
-  const targetUrl = searchParams.get('to');
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
 
-  if (!targetUrl) {
+  if (!bidId || !isValidUuid(bidId)) {
     return NextResponse.redirect(siteUrl);
   }
 
-  // Ensure target URL is valid and begins with http:// or https://
-  let sanitizedUrl: string;
+  let destinationUrl = siteUrl;
+  const supabase = createAdminClient();
+
   try {
-    const parsed = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return NextResponse.redirect(siteUrl);
+    const { data: bid } = await supabase
+      .from('bids')
+      .select('id, url, click_count')
+      .eq('id', bidId)
+      .maybeSingle();
+
+    if (bid?.url) {
+      destinationUrl = bid.url.startsWith('http') ? bid.url : `https://${bid.url}`;
     }
-    sanitizedUrl = parsed.toString();
   } catch {
     return NextResponse.redirect(siteUrl);
   }
 
-  if (!bidId) {
-    return NextResponse.redirect(sanitizedUrl);
+  if (destinationUrl === siteUrl || !isSafePublicUrl(destinationUrl)) {
+    return NextResponse.redirect(siteUrl);
   }
 
   const userAgent = req.headers.get('user-agent') || '';
   if (BOT_USER_AGENT_PATTERN.test(userAgent)) {
-    return NextResponse.redirect(sanitizedUrl);
+    return NextResponse.redirect(destinationUrl);
   }
 
   const rawIp = getClientIp(req);
@@ -50,45 +55,46 @@ export async function GET(req: NextRequest) {
   // Rate limit click actions per IP
   const rateLimit = checkRateLimit(RATE_LIMITS.CLICK_REDIRECT.action, rawIp, RATE_LIMITS.CLICK_REDIRECT.limit, RATE_LIMITS.CLICK_REDIRECT.windowSeconds);
   if (!rateLimit.success) {
-    return NextResponse.redirect(sanitizedUrl);
+    return NextResponse.redirect(destinationUrl);
   }
 
   try {
     const ipHash = hashIp(rawIp);
-    const supabase = createAdminClient();
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: recentClicks, error: checkError } = await supabase
-      .from('analytics_events')
-      .select('id')
-      .eq('bid_id', bidId)
-      .eq('ip_hash', ipHash)
-      .gte('created_at', twentyFourHoursAgo)
-      .limit(1);
+    if (bidId) {
+      const { data: recentClicks, error: checkError } = await supabase
+        .from('analytics_events')
+        .select('id')
+        .eq('bid_id', bidId)
+        .eq('ip_hash', ipHash)
+        .gte('created_at', twentyFourHoursAgo)
+        .limit(1);
 
-    if (!checkError && (!recentClicks || recentClicks.length === 0)) {
-      await supabase.from('analytics_events').insert({
-        bid_id: bidId,
-        ip_hash: ipHash,
-        event_type: 'click',
-      });
+      if (!checkError && (!recentClicks || recentClicks.length === 0)) {
+        await supabase.from('analytics_events').insert({
+          bid_id: bidId,
+          ip_hash: ipHash,
+          event_type: 'click',
+        });
 
-      const { data: currentBid } = await supabase
-        .from('bids')
-        .select('click_count')
-        .eq('id', bidId)
-        .single();
-
-      if (currentBid) {
-        await supabase
+        const { data: currentBid } = await supabase
           .from('bids')
-          .update({ click_count: (currentBid.click_count || 0) + 1 })
-          .eq('id', bidId);
+          .select('click_count')
+          .eq('id', bidId)
+          .single();
+
+        if (currentBid) {
+          await supabase
+            .from('bids')
+            .update({ click_count: (currentBid.click_count || 0) + 1 })
+            .eq('id', bidId);
+        }
       }
     }
   } catch (err) {
     console.error('[Click Tracking Error]:', err);
   }
 
-  return NextResponse.redirect(sanitizedUrl);
+  return NextResponse.redirect(destinationUrl);
 }

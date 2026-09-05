@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminPassword, createAdminSessionToken, ADMIN_COOKIE_NAME } from '@/utils/adminAuth';
 import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
 import { recordAdminAuditLog } from '@/utils/adminAudit';
-import { getClientIp } from '@/utils/securityUtils';
+import { getClientIp, validateRequestOrigin } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden: Cross-origin authentication rejected.' }, { status: 403 });
+  }
+
   const clientIp = getClientIp(req);
 
   // Rate limit admin login attempts: max 5 attempts per 60 seconds
@@ -19,10 +24,20 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const password = body?.password;
+
+    if (!password || typeof password !== 'string' || password.length > 128) {
+      await recordAdminAuditLog({
+        action: 'ADMIN_LOGIN_FAILED',
+        ipHash: clientIp,
+        reason: 'Invalid or oversized credentials supplied',
+      });
+      return NextResponse.json({ error: 'Invalid admin credentials.' }, { status: 401 });
+    }
 
     const isValid = verifyAdminPassword(password);
-    if (!password || !isValid) {
+    if (!isValid) {
       await recordAdminAuditLog({
         action: 'ADMIN_LOGIN_FAILED',
         ipHash: clientIp,
@@ -39,10 +54,12 @@ export async function POST(req: NextRequest) {
     const sessionToken = createAdminSessionToken();
     const response = NextResponse.json({ success: true, message: 'Admin authenticated.' });
 
+    const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
+
     // Set secure HttpOnly cookie (valid for 7 days)
     response.cookies.set(ADMIN_COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' || isHttps,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days in seconds

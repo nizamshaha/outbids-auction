@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateCheckoutPayload, CheckoutResponse } from '@/types/bid';
+import { CreateCheckoutPayload, CheckoutResponse, PLATFORM_CATEGORIES } from '@/types/bid';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
-import { scrapeUrlMetadata, isSafePublicUrl } from '@/utils/metadata';
+import { scrapeUrlMetadata, isSafePublicUrl, resolveAndValidateDns } from '@/utils/metadata';
 import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
-
-import { getClientIp, sanitizeString } from '@/utils/securityUtils';
+import { getClientIp, sanitizeString, validateRequestOrigin } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +19,14 @@ function getDodoBaseUrl(): string {
 }
 
 export async function POST(req: NextRequest) {
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json<CheckoutResponse>(
+      { error: 'Cross-origin checkout requests are forbidden.' },
+      { status: 403 }
+    );
+  }
+
   const clientIp = getClientIp(req);
 
   try {
@@ -37,7 +44,7 @@ export async function POST(req: NextRequest) {
     const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false } = body;
     const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
 
-    // 1. Rate Limiting Protection
+    // 2. Rate Limiting Protection
     const rateLimitConfig = isFreeSubmission ? RATE_LIMITS.CHECKOUT_FREE : RATE_LIMITS.CHECKOUT_PAID;
     const rateLimit = checkRateLimit(rateLimitConfig.action, clientIp, rateLimitConfig.limit, rateLimitConfig.windowSeconds);
 
@@ -55,10 +62,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Strict URL validation and normalization
-    if (!url || typeof url !== 'string') {
+    // 3. Strict URL validation, size bounding, and normalization
+    if (!url || typeof url !== 'string' || url.length > 2048) {
       return NextResponse.json<CheckoutResponse>(
-        { error: 'A valid website URL or @handle is required.' },
+        { error: 'A valid website URL or @handle is required (max 2,048 characters).' },
         { status: 400 }
       );
     }
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // SSRF validation on normalized URL
+    // 4. SSRF Syntactic validation on normalized URL
     if (!isSafePublicUrl(normalizedUrl)) {
       return NextResponse.json<CheckoutResponse>(
         { error: 'Submitted destination URL is not accessible or points to restricted infrastructure.' },
@@ -79,10 +86,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Sanitize category, title, and description inputs
-    const sanitizedCategory = typeof category === 'string' ? category.trim().slice(0, 50) : 'Other';
-    const sanitizedTitleInput = typeof title === 'string' ? title.trim().slice(0, 100) : '';
-    const sanitizedDescInput = typeof description === 'string' ? description.trim().slice(0, 300) : '';
+    // 5. DNS Rebinding & Routability Gate on destination domain
+    try {
+      const parsedDestination = new URL(normalizedUrl);
+      const isDnsSafe = await resolveAndValidateDns(parsedDestination.hostname);
+      if (!isDnsSafe) {
+        return NextResponse.json<CheckoutResponse>(
+          { error: 'Submitted destination domain resolves to an invalid or private network address.' },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json<CheckoutResponse>(
+        { error: 'Failed to resolve destination domain.' },
+        { status: 400 }
+      );
+    }
+
+    // 6. Enforce Category Allow-List and Sanitize Metadata Inputs
+    const categoryCandidate = typeof category === 'string' ? category.trim() : 'Other';
+    const sanitizedCategory = (PLATFORM_CATEGORIES as readonly string[]).includes(categoryCandidate)
+      ? categoryCandidate
+      : 'Other';
+
+    const sanitizedTitleInput = sanitizeString(title, 100);
+    const sanitizedDescInput = sanitizeString(description, 300);
 
     // 3. Scrape metadata safely with SSRF & DNS rebinding protection
     const scraped = await scrapeUrlMetadata(normalizedUrl);

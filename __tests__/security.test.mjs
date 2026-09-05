@@ -1,13 +1,14 @@
 import assert from 'assert';
 import { sanitizeAndNormalizeUrl, formatCentsToDollars } from '../utils/formatters.ts';
-import { isSafePublicUrl, isPublicIpAddress } from '../utils/metadata.ts';
+import { isSafePublicUrl, isPublicIpAddress, resolveAndValidateDns } from '../utils/metadata.ts';
 import { checkRateLimit } from '../utils/rateLimit.ts';
 import {
   verifyAdminPassword,
   createAdminSessionToken,
   verifyAdminSessionToken,
 } from '../utils/adminAuth.ts';
-import { sanitizeString } from '../utils/securityUtils.ts';
+import { sanitizeString, getClientIp, isValidUuid, validateRequestOrigin } from '../utils/securityUtils.ts';
+import { PLATFORM_CATEGORIES } from '../types/bid.ts';
 import crypto from 'crypto';
 
 let passedTests = 0;
@@ -93,6 +94,26 @@ test('Rejects IPv6 Local, Loopback, Unique-Local, and Link-Local', () => {
   assert.strictEqual(isSafePublicUrl('http://[fe80::1]/'), false);
   assert.strictEqual(isSafePublicUrl('http://[fc00::1]/'), false);
   assert.strictEqual(isSafePublicUrl('http://[fd00::1]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[2001:db8::1]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[2002:c0a8:101::1]/'), false);
+});
+
+test('Rejects IPv4-Mapped IPv6 SSRF bypasses', () => {
+  assert.strictEqual(isSafePublicUrl('http://[::ffff:127.0.0.1]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[::ffff:169.254.169.254]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[::ffff:10.0.0.1]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[::ffff:192.168.1.1]/'), false);
+  assert.strictEqual(isSafePublicUrl('http://[::ffff:7f00:0001]/'), false);
+});
+
+test('Rejects Documentation, Benchmark, and Reserved TLD domains', () => {
+  assert.strictEqual(isSafePublicUrl('http://192.0.2.1/'), false);
+  assert.strictEqual(isSafePublicUrl('http://198.51.100.1/'), false);
+  assert.strictEqual(isSafePublicUrl('http://203.0.113.1/'), false);
+  assert.strictEqual(isSafePublicUrl('http://198.18.0.1/'), false);
+  assert.strictEqual(isSafePublicUrl('http://internal.test/'), false);
+  assert.strictEqual(isSafePublicUrl('http://site.example/'), false);
+  assert.strictEqual(isSafePublicUrl('http://gateway.invalid/'), false);
 });
 
 test('Rejects Octal, Hex, and Integer Decimal IP representation bypasses', () => {
@@ -166,6 +187,15 @@ console.log('\n--- 4. Admin Authentication Cryptography ---');
 test('Performs constant-time timing-safe password evaluation', () => {
   assert.strictEqual(verifyAdminPassword('wrong_password_attempt'), false);
   assert.strictEqual(verifyAdminPassword(''), false);
+  assert.strictEqual(verifyAdminPassword(null), false);
+  assert.strictEqual(verifyAdminPassword(undefined), false);
+});
+
+test('Enforces password input length boundary (DoS prevention)', () => {
+  const oversizedPassword = 'A'.repeat(5000);
+  assert.strictEqual(verifyAdminPassword(oversizedPassword), false);
+  const boundaryPassword = 'A'.repeat(129);
+  assert.strictEqual(verifyAdminPassword(boundaryPassword), false);
 });
 
 test('Generates cryptographic nonce-embedded HMAC session tokens', () => {
@@ -256,6 +286,164 @@ test('Guarantees decimal-safe integer cent formatting without floating point dri
   assert.strictEqual(formatCentsToDollars(10050), '$100.50');
   assert.strictEqual(formatCentsToDollars(13100), '$131');
   assert.strictEqual(formatCentsToDollars(0), '$0');
+});
+
+function createMockRequest(headersObj, nextUrl = 'https://outbids.auction/api/test') {
+  const map = new Map(Object.entries(headersObj).map(([k, v]) => [k.toLowerCase(), v]));
+  return {
+    headers: {
+      get: (k) => map.get(k.toLowerCase()) ?? null,
+    },
+    nextUrl: new URL(nextUrl),
+  };
+}
+
+// -----------------------------------------------------------------
+// 8. Reverse-Proxy IP Extraction & Anti-Spoofing on Hostinger
+// -----------------------------------------------------------------
+console.log('\n--- 8. Reverse-Proxy IP Anti-Spoofing Invariants ---');
+
+test('Ignores forged x-vercel-forwarded-for when not running on Vercel', () => {
+  const origVercel = process.env.VERCEL;
+  delete process.env.VERCEL;
+
+  const mockReq = createMockRequest({
+    'x-vercel-forwarded-for': '1.1.1.1',
+    'x-real-ip': '203.0.113.195',
+  });
+
+  const extracted = getClientIp(mockReq);
+  assert.strictEqual(extracted, '203.0.113.195', 'Should prioritize x-real-ip and reject forged x-vercel header');
+
+  if (origVercel) process.env.VERCEL = origVercel;
+});
+
+test('Prioritizes Cloudflare cf-connecting-ip when present', () => {
+  const mockReq = createMockRequest({
+    'cf-connecting-ip': '198.51.100.42',
+    'x-real-ip': '10.0.0.1',
+    'x-forwarded-for': '1.2.3.4',
+  });
+
+  assert.strictEqual(getClientIp(mockReq), '198.51.100.42');
+});
+
+test('Safely extracts rightmost IP from x-forwarded-for chain', () => {
+  const mockReq = createMockRequest({
+    'x-forwarded-for': '1.2.3.4, 203.0.113.88',
+  });
+
+  assert.strictEqual(getClientIp(mockReq), '203.0.113.88');
+});
+
+// -----------------------------------------------------------------
+// 9. UUID Validation Against Injection & Schema Corruption
+// -----------------------------------------------------------------
+console.log('\n--- 9. UUID Parameter Validation Matrix ---');
+
+test('Validates legitimate UUIDs and rejects injection or malformed payloads', () => {
+  assert.strictEqual(isValidUuid('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'), true);
+  assert.strictEqual(isValidUuid('A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11'), true);
+  assert.strictEqual(isValidUuid('not-a-uuid'), false);
+  assert.strictEqual(isValidUuid("'; DROP TABLE bids; --"), false);
+  assert.strictEqual(isValidUuid('../../etc/passwd'), false);
+  assert.strictEqual(isValidUuid('12345'), false);
+  assert.strictEqual(isValidUuid(null), false);
+  assert.strictEqual(isValidUuid(undefined), false);
+  assert.strictEqual(isValidUuid({}), false);
+});
+
+// -----------------------------------------------------------------
+// 10. Input Size Bounds (DoS & Memory Exhaustion Prevention)
+// -----------------------------------------------------------------
+console.log('\n--- 10. Input Size Boundaries ---');
+
+test('Rejects URLs exceeding 2048 characters', () => {
+  const excessiveUrl = 'https://example.com/' + 'a'.repeat(2100);
+  const result = sanitizeAndNormalizeUrl(excessiveUrl);
+  assert.strictEqual(result.isValid, false);
+  assert.ok(result.error && result.error.includes('2,048 characters'));
+});
+
+// -----------------------------------------------------------------
+// 11. Category Allow-List Schema Validation (BOPLA Defense)
+// -----------------------------------------------------------------
+console.log('\n--- 11. Category Allow-List Schema Validation ---');
+
+test('Validates allowed categories against PLATFORM_CATEGORIES schema', () => {
+  assert.ok(PLATFORM_CATEGORIES.includes('SEO & AI Visibility'));
+  assert.ok(PLATFORM_CATEGORIES.includes('Developer Tools'));
+  assert.ok(PLATFORM_CATEGORIES.includes('Other'));
+  assert.strictEqual((PLATFORM_CATEGORIES).includes('<script>alert(1)</script>'), false);
+  assert.strictEqual((PLATFORM_CATEGORIES).includes('__proto__'), false);
+  assert.strictEqual((PLATFORM_CATEGORIES).includes('admin_override'), false);
+});
+
+// -----------------------------------------------------------------
+// 12. CSRF & Cross-Origin Request Validation
+// -----------------------------------------------------------------
+console.log('\n--- 12. CSRF & Origin Defense ---');
+
+test('Rejects cross-site mutating requests with sec-fetch-site: cross-site', () => {
+  const mockReq = createMockRequest({
+    'sec-fetch-site': 'cross-site',
+    origin: 'https://attacker.evil.com',
+  });
+
+  assert.strictEqual(validateRequestOrigin(mockReq), false);
+});
+
+test('Rejects mismatched foreign origins', () => {
+  const origSite = process.env.NEXT_PUBLIC_SITE_URL;
+  process.env.NEXT_PUBLIC_SITE_URL = 'https://outbids.auction';
+
+  const mockReq = createMockRequest({
+    origin: 'https://phishing-site.xyz',
+    host: 'outbids.auction',
+  });
+
+  assert.strictEqual(validateRequestOrigin(mockReq), false);
+
+  if (origSite) process.env.NEXT_PUBLIC_SITE_URL = origSite;
+});
+
+test('Permits matching host origin', () => {
+  const mockReq = createMockRequest({
+    origin: 'https://outbids.auction',
+    host: 'outbids.auction',
+  });
+
+  assert.strictEqual(validateRequestOrigin(mockReq), true);
+});
+
+// -----------------------------------------------------------------
+// 13. Production Password Hardcoded Fallback Prevention (P0)
+// -----------------------------------------------------------------
+console.log('\n--- 13. Production Password Hardcoded Fallback Prevention ---');
+
+test('Rejects authentication in production when ADMIN_PASSWORD is unset', () => {
+  const origEnv = process.env.NODE_ENV;
+  const origPass = process.env.ADMIN_PASSWORD;
+
+  process.env.NODE_ENV = 'production';
+  delete process.env.ADMIN_PASSWORD;
+
+  // Even with default password, production must strictly reject
+  assert.strictEqual(verifyAdminPassword('outbids_admin_2026'), false);
+  assert.strictEqual(verifyAdminPassword('any_attempt'), false);
+
+  process.env.NODE_ENV = origEnv;
+  if (origPass) process.env.ADMIN_PASSWORD = origPass;
+});
+
+// -----------------------------------------------------------------
+// 14. DNS Resolution & SSRF Rebinding Validation
+// -----------------------------------------------------------------
+console.log('\n--- 14. DNS Resolution SSRF Defense ---');
+
+await runAsyncTest('Rejects localhost and loopback through DNS resolution check', async () => {
+  const isSafe = await resolveAndValidateDns('localhost');
+  assert.strictEqual(isSafe, false);
 });
 
 console.log('\n============================================================');

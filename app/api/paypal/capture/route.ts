@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { capturePayPalOrder } from '@/utils/paypal';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { getClientIp, isValidUuid } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +17,22 @@ export async function GET(request: NextRequest) {
     request.nextUrl.origin ||
     'https://outbids.auction';
 
-  if (!token) {
+  const clientIp = getClientIp(request);
+  const rateLimit = checkRateLimit('paypal_capture', clientIp, 15, 60);
+  if (!rateLimit.success) {
+    return NextResponse.redirect(`${siteUrl}/?error=rate_limited`);
+  }
+
+  if (!token || typeof token !== 'string' || token.length > 100) {
     return NextResponse.redirect(`${siteUrl}/?canceled=true`);
+  }
+
+  if (bidId && !isValidUuid(bidId)) {
+    return NextResponse.redirect(`${siteUrl}/?error=invalid_id`);
+  }
+
+  if (topUpTargetId && !isValidUuid(topUpTargetId)) {
+    return NextResponse.redirect(`${siteUrl}/?error=invalid_id`);
   }
 
   try {
@@ -57,60 +73,48 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${siteUrl}/?success=true`);
     }
 
-    if (topUpTargetId) {
-      // Fetch target existing bid authoritatively
-      const { data: targetBid } = await supabase
+    const authoritativeBidId =
+      captureResult.purchase_units?.[0]?.custom_id ||
+      captureUnit?.custom_id ||
+      topUpTargetId ||
+      bidId;
+
+    if (!authoritativeBidId) {
+      console.warn('[PayPal Capture] No target bid ID found in PayPal order or parameters.');
+      return NextResponse.redirect(`${siteUrl}/?success=true`);
+    }
+
+    // Fetch target bid authoritatively from database
+    const { data: targetBid } = await supabase
+      .from('bids')
+      .select('id, amount, status')
+      .eq('id', authoritativeBidId)
+      .maybeSingle();
+
+    if (targetBid) {
+      const isTopUpOrder = Boolean(topUpTargetId && topUpTargetId === authoritativeBidId);
+      const updatedAmount = isTopUpOrder
+        ? (targetBid.amount || 0) + capturedCents
+        : Math.max(targetBid.amount || 0, capturedCents);
+
+      await supabase
         .from('bids')
-        .select('id, amount')
-        .eq('id', topUpTargetId)
-        .single();
+        .update({
+          amount: updatedAmount,
+          status: 'paid',
+          stripe_payment_intent_id: token,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', authoritativeBidId);
 
-      if (targetBid) {
-        const authoritativeNewAmount = (targetBid.amount || 0) + capturedCents;
-        console.log(`[PayPal Capture] Authoritatively applying Top-Up: ${topUpTargetId} -> $${authoritativeNewAmount / 100}`);
-
-        await supabase
-          .from('bids')
-          .update({
-            amount: authoritativeNewAmount,
-            status: 'paid',
-            stripe_payment_intent_id: token,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', topUpTargetId);
-
-        // Remove temporary placeholder if separate
-        if (bidId && bidId !== topUpTargetId) {
+      // Clean up temporary placeholder if separate
+      if (bidId && bidId !== authoritativeBidId) {
+        try {
           await supabase.from('bids').delete().eq('id', bidId);
-        }
+        } catch {}
       }
-    } else {
-      const targetBidId =
-        bidId ||
-        captureResult.purchase_units?.[0]?.custom_id ||
-        captureUnit?.custom_id;
 
-      if (targetBidId) {
-        const { data: currentBid } = await supabase
-          .from('bids')
-          .select('id, amount')
-          .eq('id', targetBidId)
-          .single();
-
-        if (currentBid) {
-          await supabase
-            .from('bids')
-            .update({
-              amount: Math.max(currentBid.amount, capturedCents),
-              status: 'paid',
-              stripe_payment_intent_id: token,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', targetBidId);
-
-          console.log(`[PayPal Capture] Successfully marked bid ${targetBidId} as PAID ($${capturedCents / 100})!`);
-        }
-      }
+      console.log(`[PayPal Capture] Successfully applied payment to listing ${authoritativeBidId} ($${capturedCents / 100})!`);
     }
 
     return NextResponse.redirect(`${siteUrl}/?success=true`);

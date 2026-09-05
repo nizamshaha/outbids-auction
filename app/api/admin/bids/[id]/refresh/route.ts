@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isRequestAdminAuthenticated } from '@/utils/adminAuth';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { scrapeUrlMetadata } from '@/utils/metadata';
+import { scrapeUrlMetadata, isSafePublicUrl } from '@/utils/metadata';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { getClientIp, isValidUuid, validateRequestOrigin } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,13 +12,28 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden: Cross-origin request rejected.' }, { status: 403 });
+  }
+
+  // 2. Strictly verify admin authentication session
   if (!isRequestAdminAuthenticated(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 401 });
+  }
+
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(RATE_LIMITS.ADMIN_ACTION.action, clientIp, RATE_LIMITS.ADMIN_ACTION.limit, RATE_LIMITS.ADMIN_ACTION.windowSeconds);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: `Too many admin actions. Please wait ${rateLimit.resetSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': rateLimit.resetSeconds.toString() } }
+    );
   }
 
   const bidId = params.id;
-  if (!bidId) {
-    return NextResponse.json({ error: 'Bid ID is required.' }, { status: 400 });
+  if (!bidId || !isValidUuid(bidId)) {
+    return NextResponse.json({ error: 'Valid UUID Bid ID is required.' }, { status: 400 });
   }
 
   try {
@@ -39,13 +56,15 @@ export async function POST(
     console.log(`[Admin Refresh] Re-scraping metadata for ${normalizedUrl}...`);
     const scraped = await scrapeUrlMetadata(normalizedUrl);
 
+    const safeIconUrl = scraped.iconUrl && isSafePublicUrl(scraped.iconUrl) ? scraped.iconUrl : null;
+
     // Update in Supabase
     const { data: updated, error: updateError } = await supabase
       .from('bids')
       .update({
         title: scraped.title || displayDomain,
         description: scraped.description,
-        icon_url: scraped.iconUrl,
+        icon_url: safeIconUrl,
         updated_at: new Date().toISOString(),
       })
       .eq('id', bidId)
@@ -63,6 +82,6 @@ export async function POST(
     });
   } catch (err: any) {
     console.error('[Admin Refresh Error]:', err);
-    return NextResponse.json({ error: err?.message || 'Failed to refresh metadata.' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to refresh metadata.' }, { status: 500 });
   }
 }

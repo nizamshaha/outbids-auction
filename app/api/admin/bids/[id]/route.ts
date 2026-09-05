@@ -4,29 +4,41 @@ import { isRequestAdminAuthenticated } from '@/utils/adminAuth';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
 import { recordAdminAuditLog } from '@/utils/adminAudit';
+import { isSafePublicUrl } from '@/utils/metadata';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { getClientIp, isValidUuid, validateRequestOrigin } from '@/utils/securityUtils';
+import { PLATFORM_CATEGORIES } from '@/types/bid';
 
 export const dynamic = 'force-dynamic';
 
-function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    '127.0.0.1'
-  );
-}
+const ALLOWED_STATUSES = new Set(['paid', 'pending', 'failed', 'refunded', 'disputed']);
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // 1. Strictly verify admin authentication session
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden: Cross-origin request rejected.' }, { status: 403 });
+  }
+
+  // 2. Strictly verify admin authentication session
   if (!isRequestAdminAuthenticated(req)) {
     return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 401 });
   }
 
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(RATE_LIMITS.ADMIN_ACTION.action, clientIp, RATE_LIMITS.ADMIN_ACTION.limit, RATE_LIMITS.ADMIN_ACTION.windowSeconds);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: `Too many admin actions. Please wait ${rateLimit.resetSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': rateLimit.resetSeconds.toString() } }
+    );
+  }
+
   const bidId = params.id;
-  if (!bidId) {
-    return NextResponse.json({ error: 'Bid ID is required.' }, { status: 400 });
+  if (!bidId || !isValidUuid(bidId)) {
+    return NextResponse.json({ error: 'Valid UUID Bid ID is required.' }, { status: 400 });
   }
 
   try {
@@ -43,14 +55,14 @@ export async function DELETE(
     if (fetchError) {
       console.error('[Admin Delete Fetch Error]:', fetchError);
       return NextResponse.json(
-        { error: `Database fetch error: ${fetchError.message}` },
+        { error: 'Database service unavailable while fetching listing.' },
         { status: 500 }
       );
     }
 
     if (!existingBid) {
       return NextResponse.json(
-        { error: `Listing with ID "${bidId}" not found in database.` },
+        { error: 'Listing not found in database.' },
         { status: 404 }
       );
     }
@@ -71,7 +83,7 @@ export async function DELETE(
     if (deleteError) {
       console.error('[Admin Delete Mutation Error]:', deleteError);
       return NextResponse.json(
-        { error: deleteError.message || 'Row Level Security policy blocked deletion.' },
+        { error: 'Failed to delete listing due to database constraint.' },
         { status: 500 }
       );
     }
@@ -96,7 +108,7 @@ export async function DELETE(
   } catch (err: any) {
     console.error('[Admin Delete Unhandled Exception]:', err);
     return NextResponse.json(
-      { error: err?.message || 'Unexpected server error occurred while deleting listing.' },
+      { error: 'Unexpected server error occurred while deleting listing.' },
       { status: 500 }
     );
   }
@@ -106,43 +118,78 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden: Cross-origin request rejected.' }, { status: 403 });
+  }
+
+  // 2. Strictly verify admin authentication session
   if (!isRequestAdminAuthenticated(req)) {
     return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 401 });
   }
 
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(RATE_LIMITS.ADMIN_ACTION.action, clientIp, RATE_LIMITS.ADMIN_ACTION.limit, RATE_LIMITS.ADMIN_ACTION.windowSeconds);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: `Too many admin actions. Please wait ${rateLimit.resetSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': rateLimit.resetSeconds.toString() } }
+    );
+  }
+
   const bidId = params.id;
-  if (!bidId) {
-    return NextResponse.json({ error: 'Bid ID is required.' }, { status: 400 });
+  if (!bidId || !isValidUuid(bidId)) {
+    return NextResponse.json({ error: 'Valid UUID Bid ID is required.' }, { status: 400 });
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { amountInDollars, amountInCents, url, category, status, title, description, icon_url } = body;
 
     const updates: any = {
       updated_at: new Date().toISOString(),
     };
 
-    if (typeof amountInDollars === 'number') {
+    if (typeof amountInDollars === 'number' && isFinite(amountInDollars)) {
       updates.amount = Math.max(0, Math.min(100000000, Math.round(amountInDollars * 100)));
-    } else if (typeof amountInCents === 'number') {
+    } else if (typeof amountInCents === 'number' && isFinite(amountInCents)) {
       updates.amount = Math.max(0, Math.min(100000000, Math.round(amountInCents)));
     }
 
     if (url && typeof url === 'string') {
       const { isValid, normalizedUrl } = sanitizeAndNormalizeUrl(url);
-      if (isValid && normalizedUrl) {
+      if (isValid && normalizedUrl && isSafePublicUrl(normalizedUrl)) {
         updates.url = normalizedUrl;
       }
     }
 
-    if (category && typeof category === 'string') updates.category = category.trim().slice(0, 50);
-    if (status === 'paid' || status === 'pending' || status === 'failed' || status === 'refunded' || status === 'disputed') {
+    if (category && typeof category === 'string') {
+      const trimmedCat = category.trim();
+      if ((PLATFORM_CATEGORIES as readonly string[]).includes(trimmedCat)) {
+        updates.category = trimmedCat;
+      }
+    }
+
+    if (status && typeof status === 'string' && ALLOWED_STATUSES.has(status)) {
       updates.status = status;
     }
-    if (title !== undefined) updates.title = title ? String(title).trim().slice(0, 100) : null;
-    if (description !== undefined) updates.description = description ? String(description).trim().slice(0, 300) : null;
-    if (icon_url !== undefined) updates.icon_url = icon_url ? String(icon_url).trim() : null;
+
+    if (title !== undefined) {
+      updates.title = title ? String(title).trim().slice(0, 100) : null;
+    }
+
+    if (description !== undefined) {
+      updates.description = description ? String(description).trim().slice(0, 300) : null;
+    }
+
+    if (icon_url !== undefined) {
+      const cleanIcon = icon_url ? String(icon_url).trim().slice(0, 500) : null;
+      if (cleanIcon && isSafePublicUrl(cleanIcon)) {
+        updates.icon_url = cleanIcon;
+      } else {
+        updates.icon_url = null;
+      }
+    }
 
     const supabase = createAdminClient();
 
@@ -163,7 +210,7 @@ export async function PATCH(
     if (error) {
       console.error('[Admin Bid Patch Error]:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to update listing in database.' },
+        { error: 'Failed to update listing in database.' },
         { status: 500 }
       );
     }
@@ -185,7 +232,7 @@ export async function PATCH(
   } catch (err: any) {
     console.error('[Admin Bid Patch Exception]:', err);
     return NextResponse.json(
-      { error: err?.message || 'Failed to update listing.' },
+      { error: 'Failed to update listing.' },
       { status: 500 }
     );
   }

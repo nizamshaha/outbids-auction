@@ -2,46 +2,82 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isRequestAdminAuthenticated } from '@/utils/adminAuth';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
-import { scrapeUrlMetadata } from '@/utils/metadata';
+import { scrapeUrlMetadata, isSafePublicUrl, resolveAndValidateDns } from '@/utils/metadata';
 import { recordAdminAuditLog } from '@/utils/adminAudit';
+import { checkRateLimit, RATE_LIMITS } from '@/utils/rateLimit';
+import { getClientIp, sanitizeString, validateRequestOrigin } from '@/utils/securityUtils';
+import { PLATFORM_CATEGORIES } from '@/types/bid';
 
 export const dynamic = 'force-dynamic';
 
-function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    '127.0.0.1'
-  );
-}
-
 export async function POST(req: NextRequest) {
+  // 1. Cross-Origin Request Validation (CSRF mitigation)
+  if (!validateRequestOrigin(req)) {
+    return NextResponse.json({ error: 'Forbidden: Cross-origin request rejected.' }, { status: 403 });
+  }
+
+  // 2. Strictly verify admin authentication session
   if (!isRequestAdminAuthenticated(req)) {
     return NextResponse.json({ error: 'Unauthorized: Admin authentication required.' }, { status: 401 });
   }
 
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(RATE_LIMITS.ADMIN_ACTION.action, clientIp, RATE_LIMITS.ADMIN_ACTION.limit, RATE_LIMITS.ADMIN_ACTION.windowSeconds);
+  if (!rateLimit.success) {
+    return NextResponse.json(
+      { error: `Too many admin actions. Please wait ${rateLimit.resetSeconds} seconds.` },
+      { status: 429, headers: { 'Retry-After': rateLimit.resetSeconds.toString() } }
+    );
+  }
+
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { url, amountInDollars = 5, category = 'Other', title, description } = body;
 
-    if (!url) {
-      return NextResponse.json({ error: 'Website URL is required.' }, { status: 400 });
+    if (!url || typeof url !== 'string' || url.length > 2048) {
+      return NextResponse.json({ error: 'Website URL is required (max 2,048 characters).' }, { status: 400 });
     }
 
     const urlCheck = sanitizeAndNormalizeUrl(url);
-    if (!urlCheck.isValid) {
+    if (!urlCheck.isValid || !urlCheck.normalizedUrl) {
       return NextResponse.json({ error: urlCheck.error || 'Invalid URL format.' }, { status: 400 });
     }
 
     const normalizedUrl = urlCheck.normalizedUrl;
+    if (!isSafePublicUrl(normalizedUrl)) {
+      return NextResponse.json({ error: 'Destination URL is restricted or invalid.' }, { status: 400 });
+    }
+
+    // Validate DNS resolution to prevent private address seeding
+    try {
+      const parsedHost = new URL(normalizedUrl).hostname;
+      const isDnsSafe = await resolveAndValidateDns(parsedHost);
+      if (!isDnsSafe) {
+        return NextResponse.json({ error: 'Destination domain resolves to an inaccessible or private network address.' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Failed to resolve destination domain.' }, { status: 400 });
+    }
+
+    // Category allow-list validation
+    const categoryCandidate = typeof category === 'string' ? category.trim() : 'Other';
+    const sanitizedCategory = (PLATFORM_CATEGORIES as readonly string[]).includes(categoryCandidate)
+      ? categoryCandidate
+      : 'Other';
+
     const displayDomain = urlCheck.displayDomain;
-    const amountCents = Math.max(0, Math.min(100000000, Math.round(parseFloat(amountInDollars) * 100)));
+    const parsedAmount = typeof amountInDollars === 'number' ? amountInDollars : parseFloat(String(amountInDollars));
+    const safeAmountNum = isNaN(parsedAmount) || !isFinite(parsedAmount) ? 5 : parsedAmount;
+    const amountCents = Math.max(0, Math.min(100000000, Math.round(safeAmountNum * 100)));
+
+    const sanitizedTitle = sanitizeString(title, 100);
+    const sanitizedDesc = sanitizeString(description, 300);
 
     // Scrape metadata if title or description were left blank
     const scraped = await scrapeUrlMetadata(normalizedUrl);
-    const finalTitle = title?.trim() || scraped.title || displayDomain;
-    const finalDescription = description?.trim() || scraped.description;
-    const finalIconUrl = scraped.iconUrl;
+    const finalTitle = sanitizedTitle || scraped.title || displayDomain;
+    const finalDescription = sanitizedDesc || scraped.description || null;
+    const finalIconUrl = scraped.iconUrl && isSafePublicUrl(scraped.iconUrl) ? scraped.iconUrl : null;
 
     const supabase = createAdminClient();
 

@@ -35,7 +35,31 @@ function cleanText(rawText: string, maxLength: number = 200): string {
  */
 export function isPublicIpAddress(ip: string): boolean {
   if (!ip || typeof ip !== 'string') return false;
-  const cleanIp = ip.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  let cleanIp = ip.trim().toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Handle IPv4-mapped IPv6 addresses (e.g., ::ffff:127.0.0.1 or ::ffff:7f00:1)
+  if (cleanIp.startsWith('::ffff:')) {
+    const v4Part = cleanIp.slice(7);
+    if (v4Part.includes('.')) {
+      return isPublicIpAddress(v4Part);
+    }
+    // Hex IPv4 in IPv6 (e.g. ::ffff:7f00:0001)
+    const hexParts = v4Part.split(':');
+    if (hexParts.length === 2) {
+      try {
+        const high = parseInt(hexParts[0], 16);
+        const low = parseInt(hexParts[1], 16);
+        const o1 = (high >> 8) & 0xff;
+        const o2 = high & 0xff;
+        const o3 = (low >> 8) & 0xff;
+        const o4 = low & 0xff;
+        return isPublicIpAddress(`${o1}.${o2}.${o3}.${o4}`);
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
 
   // IPv6 Checks
   if (cleanIp.includes(':')) {
@@ -45,7 +69,9 @@ export function isPublicIpAddress(ip: string): boolean {
       cleanIp.startsWith('fe80:') || // Link-local
       cleanIp.startsWith('fc00:') || // Unique local
       cleanIp.startsWith('fd00:') ||
-      cleanIp.startsWith('ff00:')    // Multicast
+      cleanIp.startsWith('ff00:') || // Multicast
+      cleanIp.startsWith('2001:db8:') || // RFC 3849 Documentation
+      cleanIp.startsWith('2002:')    // 6to4 relay
     ) {
       return false;
     }
@@ -58,17 +84,21 @@ export function isPublicIpAddress(ip: string): boolean {
     return false;
   }
 
-  const [o1, o2] = parts;
+  const [o1, o2, o3] = parts;
 
-  if (o1 === 0) return false;                   // 0.0.0.0/8 Current network
-  if (o1 === 127) return false;                 // 127.0.0.0/8 Loopback
-  if (o1 === 10) return false;                  // 10.0.0.0/8 Private
-  if (o1 === 172 && o2 >= 16 && o2 <= 31) return false; // 172.16.0.0/12 Private
-  if (o1 === 192 && o2 === 168) return false;   // 192.168.0.0/16 Private
-  if (o1 === 169 && o2 === 254) return false;   // 169.254.0.0/16 Link-Local / Cloud Metadata
+  if (o1 === 0) return false;                            // 0.0.0.0/8 Current network
+  if (o1 === 127) return false;                          // 127.0.0.0/8 Loopback
+  if (o1 === 10) return false;                           // 10.0.0.0/8 Private
+  if (o1 === 172 && o2 >= 16 && o2 <= 31) return false;  // 172.16.0.0/12 Private
+  if (o1 === 192 && o2 === 168) return false;            // 192.168.0.0/16 Private
+  if (o1 === 169 && o2 === 254) return false;            // 169.254.0.0/16 Link-Local / Cloud Metadata
   if (o1 === 100 && o2 >= 64 && o2 <= 127) return false; // 100.64.0.0/10 CGNAT
-  if (o1 >= 224 && o1 <= 239) return false;     // 224.0.0.0/4 Multicast
-  if (o1 >= 240) return false;                  // 240.0.0.0/4 Reserved / Broadcast
+  if (o1 === 192 && o2 === 0 && o3 === 2) return false;  // 192.0.2.0/24 Documentation (TEST-NET-1)
+  if (o1 === 198 && o2 === 51 && o3 === 100) return false; // 198.51.100.0/24 Documentation (TEST-NET-2)
+  if (o1 === 198 && (o2 === 18 || o2 === 19)) return false; // 198.18.0.0/15 Benchmark testing
+  if (o1 === 203 && o2 === 0 && o3 === 113) return false; // 203.0.113.0/24 Documentation (TEST-NET-3)
+  if (o1 >= 224 && o1 <= 239) return false;              // 224.0.0.0/4 Multicast
+  if (o1 >= 240) return false;                           // 240.0.0.0/4 Reserved / Broadcast
 
   return true;
 }
@@ -102,6 +132,9 @@ export function isSafePublicUrl(targetUrl: string): boolean {
       hostname.endsWith('.corp') ||
       hostname.endsWith('.lan') ||
       hostname.endsWith('.home') ||
+      hostname.endsWith('.test') ||
+      hostname.endsWith('.example') ||
+      hostname.endsWith('.invalid') ||
       hostname === 'metadata.google.internal' ||
       hostname === 'instance-data'
     ) {
@@ -149,7 +182,7 @@ export async function resolveAndValidateDns(hostname: string): Promise<boolean> 
  * Scrapes metadata (Title, Description, Favicon) with comprehensive SSRF protection,
  * memory-bounded response streaming, strict timeouts, and XSS sanitization.
  */
-export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetadata> {
+export async function scrapeUrlMetadata(targetUrl: string, redirectCount: number = 0): Promise<ScrapedMetadata> {
   const { displayDomain, normalizedUrl } = sanitizeAndNormalizeUrl(targetUrl);
   const fallbackFavicon = getFaviconUrl(normalizedUrl, 128);
 
@@ -160,7 +193,7 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
     domain: displayDomain,
   };
 
-  if (!normalizedUrl || normalizedUrl === 'https://') {
+  if (!normalizedUrl || normalizedUrl === 'https://' || redirectCount > 3) {
     return fallback;
   }
 
@@ -199,8 +232,8 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
 
     clearTimeout(timeoutId);
 
-    // If redirected, re-validate redirect target safely
-    if (response.status >= 300 && response.status < 400) {
+    // If redirected, re-validate redirect target safely (bounded to 3 hops)
+    if (response.status >= 300 && response.status < 400 && redirectCount < 3) {
       const location = response.headers.get('location');
       if (location) {
         let redirectUrl = location;
@@ -210,7 +243,7 @@ export async function scrapeUrlMetadata(targetUrl: string): Promise<ScrapedMetad
         if (isSafePublicUrl(redirectUrl)) {
           const redirectHost = new URL(redirectUrl).hostname;
           if (await resolveAndValidateDns(redirectHost)) {
-            return scrapeUrlMetadata(redirectUrl);
+            return scrapeUrlMetadata(redirectUrl, redirectCount + 1);
           }
         }
       }

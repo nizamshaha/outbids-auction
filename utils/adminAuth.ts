@@ -3,12 +3,15 @@ import { NextRequest } from 'next/server';
 
 export const ADMIN_COOKIE_NAME = 'outbids_admin_session';
 
+const RUNTIME_EPHEMERAL_SECRET = crypto.randomBytes(32).toString('hex');
+
 export function getAdminSecret(): string {
-  return (
-    process.env.ADMIN_PASSWORD ||
-    process.env.PAYPAL_SECRET ||
-    'outbids_admin_secure_secret_2026'
-  );
+  const secret = process.env.ADMIN_PASSWORD || process.env.PAYPAL_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    return RUNTIME_EPHEMERAL_SECRET;
+  }
+  return 'outbids_admin_secure_secret_2026';
 }
 
 /**
@@ -77,11 +80,25 @@ export function isRequestAdminAuthenticated(req: NextRequest): boolean {
 }
 
 /**
- * Verifies password strictly against the immutable environment variable using constant-time comparison
+ * Verifies password strictly against the immutable environment variable using constant-time comparison.
+ * Bounded to max 128 characters to prevent DoS via CPU/memory starvation on hashing buffers.
+ * In production environments, an explicitly configured ADMIN_PASSWORD is mandatory (no hardcoded fallback).
  */
 export function verifyAdminPassword(password: string): boolean {
-  const actualPassword = process.env.ADMIN_PASSWORD || 'outbids_admin_2026';
-  if (!password || typeof password !== 'string' || !actualPassword) return false;
+  if (!password || typeof password !== 'string') return false;
+  if (password.length > 128) return false; // Enforce max 128 chars constraint
+
+  const isProd = process.env.NODE_ENV === 'production';
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+
+  // In production, reject any authentication if ADMIN_PASSWORD is not explicitly configured
+  if (isProd && (!configuredPassword || configuredPassword.trim() === '')) {
+    console.error('[SECURITY CRITICAL] ADMIN_PASSWORD environment variable is not defined in production. Access rejected.');
+    return false;
+  }
+
+  const actualPassword = configuredPassword || 'outbids_admin_2026';
+  if (!actualPassword) return false;
 
   try {
     const bufA = Buffer.from(password);

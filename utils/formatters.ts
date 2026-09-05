@@ -97,9 +97,15 @@ export function sanitizeAndNormalizeUrl(rawUrl: string): {
   displayDomain: string;
   error?: string;
 } {
+  if (typeof rawUrl !== 'string') {
+    return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'URL or @handle is required.' };
+  }
   let url = rawUrl.trim();
   if (!url) {
     return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'URL or @handle is required.' };
+  }
+  if (url.length > 2048) {
+    return { isValid: false, normalizedUrl: '', displayDomain: '', error: 'URL exceeds maximum allowable length of 2,048 characters.' };
   }
 
   // Handle social @handle (e.g., @username -> https://x.com/username)

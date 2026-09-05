@@ -16,8 +16,8 @@ export const createAdminClient = (): SupabaseClient<Database> => {
     process.env.SUPABASE_SECRET_KEY;
 
   if (!supabaseServiceRoleKey && process.env.NODE_ENV === 'production') {
-    console.warn(
-      '[Supabase Admin] Warning: SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables. Mutations may fail against Row Level Security (RLS).'
+    throw new Error(
+      '[CRITICAL SECURITY ERROR] SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY is mandatory in production for administrative operations.'
     );
   }
 

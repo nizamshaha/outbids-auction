@@ -1,13 +1,11 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  verifyAdminPassword,
   createAdminSessionToken,
   ADMIN_COOKIE_NAME,
   ADMIN_SESSION_TTL_SECONDS,
 } from '@/utils/adminAuth';
 import {
-  checkRateLimit,
-  RATE_LIMITS,
   checkProgressiveLockout,
   recordFailedAuthAttempt,
   resetAuthAttempts,
@@ -17,92 +15,89 @@ import { getClientIp, validateRequestOrigin } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
 
-const NO_CACHE_HEADERS = {
-  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-  Pragma: 'no-cache',
-  Expires: '0',
-};
-
-export async function POST(req: NextRequest) {
-  // 1. Cross-Origin Request Validation (CSRF mitigation)
-  if (!validateRequestOrigin(req)) {
-    return NextResponse.json(
-      { error: 'Forbidden: Cross-origin authentication rejected.' },
-      { status: 403, headers: NO_CACHE_HEADERS }
-    );
-  }
-
-  const clientIp = getClientIp(req);
-
-  // 2. Check progressive brute-force security lockout (15 minutes on 5 consecutive failures)
-  const lockout = checkProgressiveLockout(clientIp);
-  if (lockout.isLocked) {
-    await recordAdminAuditLog({
-      action: 'ADMIN_LOCKOUT_TRIGGERED',
-      ipHash: clientIp,
-      reason: `Blocked by active security lockout (${lockout.remainingSeconds}s remaining)`,
-    });
-    return NextResponse.json(
-      {
-        error: `Security Lockout Active: IP locked due to repeated failed attempts. Try again in ${Math.ceil(
-          lockout.remainingSeconds / 60
-        )} minutes.`,
-      },
-      {
-        status: 429,
-        headers: {
-          ...NO_CACHE_HEADERS,
-          'Retry-After': lockout.remainingSeconds.toString(),
-        },
-      }
-    );
-  }
-
-  // 3. Sliding-window rate limiting: max 5 attempts per 60 seconds
-  const rateLimit = checkRateLimit(
-    RATE_LIMITS.AUTH_LOGIN.action,
-    clientIp,
-    RATE_LIMITS.AUTH_LOGIN.limit,
-    RATE_LIMITS.AUTH_LOGIN.windowSeconds
-  );
-  if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: `Too many failed login attempts. Please wait ${rateLimit.resetSeconds} seconds before trying again.` },
-      {
-        status: 429,
-        headers: {
-          ...NO_CACHE_HEADERS,
-          'Retry-After': rateLimit.resetSeconds.toString(),
-        },
-      }
+export async function POST(req: NextRequest | Request) {
+  // 0. Cross-Origin Request Validation (CSRF mitigation)
+  if (req instanceof NextRequest && !validateRequestOrigin(req)) {
+    return new Response(
+      JSON.stringify({ error: 'Forbidden: Cross-origin authentication rejected.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
   }
 
   try {
     const body = await req.json().catch(() => ({}));
-    const password = body?.password;
+    const { password } = body;
+    const clientIp =
+      (req instanceof NextRequest ? getClientIp(req) : null) ||
+      req.headers.get('x-real-ip') ||
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      'unknown_ip';
+    const userAgent = req.headers.get('user-agent') || 'unknown_ua';
 
-    if (!password || typeof password !== 'string' || password.length > 128) {
-      const failRecord = recordFailedAuthAttempt(clientIp);
-      await recordAdminAuditLog({
-        action: failRecord.isLocked ? 'ADMIN_LOCKOUT_TRIGGERED' : 'ADMIN_LOGIN_FAILED',
-        ipHash: clientIp,
-        reason: 'Invalid or oversized credentials supplied',
-      });
-
-      return NextResponse.json(
-        {
-          error: failRecord.isLocked
-            ? 'Account locked for 15 minutes due to consecutive failed attempts.'
-            : 'Invalid admin credentials.',
-        },
-        { status: 401, headers: NO_CACHE_HEADERS }
+    // 1. Strict Type and Size Validation (Computational DoS Guardrail)
+    if (!password || typeof password !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request format.' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
-    const isValid = verifyAdminPassword(password);
-    if (!isValid) {
-      const failRecord = recordFailedAuthAttempt(clientIp);
+    if (password.length > 128) {
+      await recordAdminAuditLog({
+        action: 'ADMIN_LOGIN_FAILED',
+        ipHash: clientIp,
+        reason: 'Oversized password payload attempt (>128 chars)',
+      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid credentials.' }), // Generic error prevents logic discovery
+        { status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 2. Progressive Lockout Check
+    const lockoutState = await checkProgressiveLockout(clientIp);
+    if (lockoutState.isLocked) {
+      await recordAdminAuditLog({
+        action: 'ADMIN_LOCKOUT_TRIGGERED',
+        ipHash: clientIp,
+        reason: `Blocked by active security lockout (${lockoutState.remainingSeconds}s remaining)`,
+      });
+      return new Response(
+        JSON.stringify({ error: `Too many attempts. Try again in ${lockoutState.remainingSeconds}s.` }), 
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            'Retry-After': String(lockoutState.remainingSeconds),
+          },
+        }
+      );
+    }
+
+    // 3. Constant-Time SHA-256 Verification (Zero Length Leakage)
+    const isProd = process.env.NODE_ENV === 'production';
+    const configuredPassword = process.env.ADMIN_PASSWORD;
+
+    if (isProd && (!configuredPassword || configuredPassword.trim() === '')) {
+      console.error(
+        '[SECURITY CRITICAL] ADMIN_PASSWORD environment variable is not defined in production. Access rejected.'
+      );
+      await recordFailedAuthAttempt(clientIp);
+      return new Response(
+        JSON.stringify({ error: 'Invalid credentials.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    const expectedPassword = configuredPassword || 'outbids_admin_2026';
+
+    // Hash both values to guarantee identical 32-byte buffers
+    const inputHash = crypto.createHash('sha256').update(password).digest();
+    const expectedHash = crypto.createHash('sha256').update(expectedPassword).digest();
+
+    if (!crypto.timingSafeEqual(inputHash, expectedHash)) {
+      const failRecord = await recordFailedAuthAttempt(clientIp);
       await recordAdminAuditLog({
         action: failRecord.isLocked ? 'ADMIN_LOCKOUT_TRIGGERED' : 'ADMIN_LOGIN_FAILED',
         ipHash: clientIp,
@@ -111,17 +106,13 @@ export async function POST(req: NextRequest) {
           : `Invalid credentials (attempt ${failRecord.count})`,
       });
 
-      return NextResponse.json(
-        {
-          error: failRecord.isLocked
-            ? 'Account locked for 15 minutes due to consecutive failed attempts.'
-            : 'Invalid admin credentials.',
-        },
-        { status: 401, headers: NO_CACHE_HEADERS }
+      return new Response(
+        JSON.stringify({ error: 'Invalid credentials.' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
       );
     }
 
-    // Reset failed counter upon verified authentication
+    // 4. Success: Reset lockout, generate User-Agent bound token, set strict cookies
     resetAuthAttempts(clientIp);
 
     await recordAdminAuditLog({
@@ -129,29 +120,32 @@ export async function POST(req: NextRequest) {
       ipHash: clientIp,
     });
 
-    const userAgent = req.headers.get('user-agent');
     const sessionToken = createAdminSessionToken(userAgent);
-    const response = NextResponse.json(
-      { success: true, message: 'Admin authenticated.' },
-      { headers: NO_CACHE_HEADERS }
+    const isHttps =
+      (req instanceof NextRequest && req.nextUrl.protocol === 'https:') ||
+      req.headers.get('x-forwarded-proto') === 'https';
+
+    const response = new Response(
+      JSON.stringify({ success: true, message: 'Admin authenticated.' }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Set-Cookie': `${ADMIN_COOKIE_NAME}=${sessionToken}; Path=/; Max-Age=${ADMIN_SESSION_TTL_SECONDS}; SameSite=Strict; HttpOnly${
+            isProd || isHttps ? '; Secure' : ''
+          }`,
+        },
+      }
     );
-
-    const isHttps = req.nextUrl.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https';
-
-    // Set secure HttpOnly cookie (valid for 12 hours, SameSite: Strict)
-    response.cookies.set(ADMIN_COOKIE_NAME, sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' || isHttps,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: ADMIN_SESSION_TTL_SECONDS, // 12 hours in seconds
-    });
 
     return response;
   } catch (err: any) {
-    return NextResponse.json(
-      { error: 'Authentication failed.' },
-      { status: 500, headers: NO_CACHE_HEADERS }
+    return new Response(
+      JSON.stringify({ error: 'Authentication failed.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
   }
 }

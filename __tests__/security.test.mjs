@@ -414,6 +414,19 @@ test('Permits matching host origin', () => {
   });
 
   assert.strictEqual(validateRequestOrigin(mockReq), true);
+
+  // Cross-match between apex and www
+  const mockReqWww = createMockRequest({
+    origin: 'https://www.outbids.auction',
+    host: 'outbids.auction',
+  });
+  assert.strictEqual(validateRequestOrigin(mockReqWww), true);
+
+  const mockReqApex = createMockRequest({
+    origin: 'https://outbids.auction',
+    host: 'www.outbids.auction',
+  });
+  assert.strictEqual(validateRequestOrigin(mockReqApex), true);
 });
 
 // -----------------------------------------------------------------

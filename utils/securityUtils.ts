@@ -88,12 +88,27 @@ export function validateRequestOrigin(req: NextRequest): boolean {
     const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     const configuredHost = configuredSiteUrl ? new URL(configuredSiteUrl).host.toLowerCase() : null;
 
-    if (currentHost && originHost === currentHost) {
-      return true;
+    // Direct host match or www/apex match
+    if (currentHost) {
+      if (
+        originHost === currentHost ||
+        originHost === `www.${currentHost}` ||
+        `www.${originHost}` === currentHost
+      ) {
+        return true;
+      }
     }
-    if (configuredHost && originHost === configuredHost) {
-      return true;
+
+    if (configuredHost) {
+      if (
+        originHost === configuredHost ||
+        originHost === `www.${configuredHost}` ||
+        `www.${originHost}` === configuredHost
+      ) {
+        return true;
+      }
     }
+
     // Allow localhost during local development
     if (process.env.NODE_ENV !== 'production' && (originHost.startsWith('localhost:') || originHost === 'localhost')) {
       return true;

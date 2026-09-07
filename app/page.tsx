@@ -85,6 +85,8 @@ function MainContent() {
         statusParam === 'completed') &&
       !isFailed;
 
+    const paymentId = searchParams.get('payment_id')?.trim();
+
     if (isSuccess) {
       setNotification({
         type: 'success',
@@ -97,6 +99,21 @@ function MainContent() {
           origin: { y: 0.6 },
         });
       } catch {}
+
+      // Actively verify and guarantee fulfillment in case webhook was delayed or dropped
+      if (paymentId && /^pay_[A-Za-z0-9_-]+$/.test(paymentId)) {
+        fetch(`/api/checkout/verify?payment_id=${encodeURIComponent(paymentId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.listing?.category) {
+              // Automatically switch to the category so user immediately sees their listing
+              setSelectedCategory(data.listing.category);
+            }
+          })
+          .catch((err) => {
+            console.error('[Payment Verification Error]:', err);
+          });
+      }
     } else if (isFailed) {
       setNotification({
         type: 'failed',
@@ -148,6 +165,7 @@ function MainContent() {
         totalBids={stats.count}
         totalVolumeCents={stats.totalVolume}
         selectedAmountDollars={selectedBidAmount}
+        selectedCategory={selectedCategory}
       />
 
       {/* 3. Main Content: 2-Column Grid (Category Sidebar + Leaderboard Stream) */}

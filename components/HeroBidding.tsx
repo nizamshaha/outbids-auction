@@ -11,6 +11,7 @@ interface HeroBiddingProps {
   totalVolumeCents: number;
   isConnected: boolean;
   selectedAmountDollars?: number | null;
+  selectedCategory?: string;
 }
 
 const MIN_BID_DOLLARS = 1;
@@ -21,6 +22,7 @@ export function HeroBidding({
   totalVolumeCents,
   isConnected,
   selectedAmountDollars,
+  selectedCategory,
 }: HeroBiddingProps) {
   const [url, setUrl] = useState('');
   const [amount, setAmount] = useState<string>('');
@@ -41,6 +43,17 @@ export function HeroBidding({
       setIsFreeMode(false);
     }
   }, [selectedAmountDollars]);
+
+  // Sync selected category from sidebar if user is filtering by a specific category
+  useEffect(() => {
+    if (
+      selectedCategory &&
+      selectedCategory !== 'All' &&
+      (PLATFORM_CATEGORIES as readonly string[]).includes(selectedCategory)
+    ) {
+      setCategory(selectedCategory as BidCategory);
+    }
+  }, [selectedCategory]);
 
   // Live URL validation and preview
   const urlValidation = sanitizeAndNormalizeUrl(url);

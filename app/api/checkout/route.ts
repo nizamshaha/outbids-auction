@@ -249,7 +249,8 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     const apiKey = process.env.DODO_SECRET_KEY || process.env.DODO_PAYMENTS_API_KEY;
     const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_0Nm9Jk0QoBKXJmjXqt2u2';
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
+    const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.outbids.auction';
+    const siteUrl = rawSiteUrl.replace('https://outbids.auction', 'https://www.outbids.auction');
 
     if (!apiKey) {
       console.error('[Dodo Payments Security] DODO_SECRET_KEY or DODO_PAYMENTS_API_KEY is not configured.');

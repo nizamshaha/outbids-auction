@@ -78,13 +78,13 @@ export async function POST(req: NextRequest) {
     // 1. Handle Payment Succeeded Event
     // -------------------------------------------------------------
     if (eventType === 'payment.succeeded' || eventType === 'payment_succeeded' || data?.status === 'succeeded') {
-      const paymentId = String(data?.payment_id || data?.id || '').trim();
-      const metadata = data?.metadata || {};
+      const paymentId = String(data?.payment_id || data?.id || data?.payment?.payment_id || '').trim();
+      const metadata = data?.metadata || data?.payment?.metadata || {};
 
       const rawUrl = metadata?.url;
       const category = sanitizeString(metadata?.category || 'Other', 50);
       
-      const parsedAmount = parseInt(String(metadata?.bid_amount || data?.total_amount || 0), 10);
+      const parsedAmount = parseInt(String(metadata?.bid_amount || data?.total_amount || data?.amount || data?.payment?.total_amount || 0), 10);
       const bidAmountCents = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
       
       const isTopUp = metadata?.is_topup === 'true' || metadata?.is_topup === true;

@@ -33,6 +33,8 @@ interface LeaderboardProps {
     totalCount: number
   ) => void;
   selectedCategory?: string;
+  refreshTrigger?: number;
+  onOptimisticBid?: Bid | null;
 }
 
 type TabType = 'all' | 'today' | 'week' | 'latest' | 'watchlist' | 'free';
@@ -85,6 +87,8 @@ export function Leaderboard({
   onSelectBidForTopUp,
   onCategoryMetricsCalculated,
   selectedCategory = 'All',
+  refreshTrigger,
+  onOptimisticBid,
 }: LeaderboardProps) {
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +171,56 @@ export function Leaderboard({
     }
   }, [sortRankBids, emitStatsAndSnapshot]);
 
+  // Instant Optimistic Bid Injection (0ms UI update upon checkout completion)
+  useEffect(() => {
+    if (!onOptimisticBid) return;
+    setBids((prev) => {
+      let updatedList = [...prev];
+      const existingIndex = updatedList.findIndex(
+        (b) => b.id === onOptimisticBid.id || b.url === onOptimisticBid.url
+      );
+      if (existingIndex >= 0) {
+        updatedList[existingIndex] = { ...updatedList[existingIndex], ...onOptimisticBid };
+      } else {
+        updatedList.push(onOptimisticBid);
+      }
+      const sorted = sortRankBids(updatedList);
+      emitStatsAndSnapshot(sorted);
+      try {
+        confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
+      } catch (e) {}
+      return sorted;
+    });
+  }, [onOptimisticBid, sortRankBids, emitStatsAndSnapshot]);
+
+  // Trigger re-fetch when external refresh counter changes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchPaidBids();
+    }
+  }, [refreshTrigger, fetchPaidBids]);
+
+  // Self-Healing Window Focus & Tab Visibility Re-Sync + 15s Heartbeat
+  useEffect(() => {
+    const onFocusOrVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchPaidBids();
+      }
+    };
+
+    window.addEventListener('visibilitychange', onFocusOrVisible);
+    window.addEventListener('focus', onFocusOrVisible);
+
+    const heartbeat = setInterval(onFocusOrVisible, 15000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', onFocusOrVisible);
+      window.removeEventListener('focus', onFocusOrVisible);
+      clearInterval(heartbeat);
+    };
+  }, [fetchPaidBids]);
+
+  // Realtime Supabase Postgres Channel
   useEffect(() => {
     fetchPaidBids();
 
@@ -188,7 +242,14 @@ export function Leaderboard({
             if (eventType === 'INSERT') {
               const insertedBid = newRow as Bid;
               if (insertedBid.status === 'paid') {
-                updatedList.push(insertedBid);
+                const existingIndex = updatedList.findIndex(
+                  (b) => b.id === insertedBid.id || b.url === insertedBid.url
+                );
+                if (existingIndex >= 0) {
+                  updatedList[existingIndex] = insertedBid;
+                } else {
+                  updatedList.push(insertedBid);
+                }
                 const currentTop = updatedList.length > 0 ? updatedList[0].amount : 0;
                 if (insertedBid.amount >= currentTop && insertedBid.amount > 0) {
                   try {
@@ -198,7 +259,7 @@ export function Leaderboard({
               }
             } else if (eventType === 'UPDATE') {
               const updatedBid = newRow as Bid;
-              const existingIndex = updatedList.findIndex((b) => b.id === updatedBid.id);
+              const existingIndex = updatedList.findIndex((b) => b.id === updatedBid.id || b.url === updatedBid.url);
 
               if (updatedBid.status === 'paid') {
                 if (existingIndex >= 0) {

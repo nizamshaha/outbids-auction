@@ -10,12 +10,15 @@ import { RulesGrid } from '@/components/RulesGrid';
 import { Footer } from '@/components/Footer';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { Bid } from '@/types/bid';
 
 function MainContent() {
   const searchParams = useSearchParams();
   const [isConnected, setIsConnected] = useState(false);
   const [selectedBidAmount, setSelectedBidAmount] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [optimisticBid, setOptimisticBid] = useState<Bid | null>(null);
   const [categoryPools, setCategoryPools] = useState<Record<string, number>>({});
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [stats, setStats] = useState({
@@ -105,9 +108,19 @@ function MainContent() {
         fetch(`/api/checkout/verify?payment_id=${encodeURIComponent(paymentId)}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data.success && data.listing?.category) {
-              // Automatically switch to the category so user immediately sees their listing
-              setSelectedCategory(data.listing.category);
+            if (data.success && data.listing) {
+              setOptimisticBid(data.listing);
+              setRefreshTrigger((v) => v + 1);
+              if (data.listing.category) {
+                // Automatically switch to the category so user immediately sees their listing
+                setSelectedCategory(data.listing.category);
+              }
+              setNotification({
+                type: 'success',
+                message: data.listing.title
+                  ? `🎉 Payment Confirmed! "${data.listing.title}" is now live on the OutBids attention market.`
+                  : '🎉 Payment Successful! Your listing is now live on the OutBids attention market.',
+              });
             }
           })
           .catch((err) => {
@@ -185,6 +198,8 @@ function MainContent() {
           <div className="flex-1 min-w-0 w-full">
             <Leaderboard
               selectedCategory={selectedCategory}
+              refreshTrigger={refreshTrigger}
+              onOptimisticBid={optimisticBid}
               onStatsUpdate={handleStatsUpdate}
               onConnectionChange={handleConnectionChange}
               onSelectBidAmount={handleSelectBidAmount}

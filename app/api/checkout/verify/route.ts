@@ -108,11 +108,11 @@ export async function GET(req: NextRequest) {
     }
 
     // 6. Extract and sanitize metadata from verified payment
-    const metadata = dodoData.metadata || {};
+    const metadata = dodoData.metadata || dodoData.payment?.metadata || {};
     const rawUrl = metadata.url;
     const category = sanitizeString(metadata.category || 'Other', 50);
 
-    const parsedAmount = parseInt(String(metadata.bid_amount || dodoData.total_amount || 0), 10);
+    const parsedAmount = parseInt(String(metadata.bid_amount || dodoData.total_amount || dodoData.amount || 0), 10);
     const bidAmountCents = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
 
     const isTopUp = metadata.is_topup === 'true' || metadata.is_topup === true;

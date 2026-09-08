@@ -18,6 +18,23 @@ export function Footer() {
             <Lock className="w-3.5 h-3.5 text-[#c2652a] shrink-0" />
             <span>Payments securely processed via <strong>Dodo Payments</strong>.</span>
           </p>
+
+          <div className="pt-4">
+            <a
+              href="https://frogdr.com/outbids.auction?utm_source=outbids.auction"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block hover:opacity-90 transition-opacity"
+            >
+              <img
+                src="https://frogdr.com/outbids.auction/badge-white.svg"
+                alt="Monitor your Domain Rating with FrogDR"
+                width="250"
+                height="54"
+                className="w-[200px] sm:w-[220px] h-auto rounded"
+              />
+            </a>
+          </div>
         </div>
 
         {/* Right Column */}

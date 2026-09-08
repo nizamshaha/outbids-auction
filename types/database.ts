@@ -24,6 +24,7 @@ export interface Database {
           click_count: number;
           view_count: number;
           stripe_payment_intent_id: string | null;
+          email: string | null;
         };
         Insert: {
           id?: string;
@@ -39,6 +40,7 @@ export interface Database {
           click_count?: number;
           view_count?: number;
           stripe_payment_intent_id?: string | null;
+          email?: string | null;
         };
         Update: {
           id?: string;
@@ -54,6 +56,7 @@ export interface Database {
           click_count?: number;
           view_count?: number;
           stripe_payment_intent_id?: string | null;
+          email?: string | null;
         };
         Relationships: [];
       };

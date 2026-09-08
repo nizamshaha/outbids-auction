@@ -259,7 +259,7 @@ export function BidListingView({ bid, rank }: BidListingViewProps) {
           <a
             href={`/go/${bid.id}`}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="sponsored noopener noreferrer"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#f2ece4] hover:bg-[#ece6dc] border border-[#d8d0c8] text-[#1a1a1a] font-bold text-sm transition-colors shadow-xs"
           >
             <span>Visit {displayDomain}</span>

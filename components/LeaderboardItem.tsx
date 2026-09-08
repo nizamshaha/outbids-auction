@@ -101,7 +101,7 @@ export function LeaderboardItem({ bid, rank }: LeaderboardItemProps) {
               <a
                 href={bid.id ? `/go/${bid.id}` : normalizedUrl}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="sponsored noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="inline-flex items-center gap-1.5 font-bold text-gray-100 hover:text-indigo-400 text-base sm:text-lg transition-colors group-hover:underline underline-offset-4 truncate max-w-[200px] sm:max-w-md"
                 title={normalizedUrl}

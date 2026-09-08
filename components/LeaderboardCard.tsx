@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   Zap,
   Star,
-  Trophy,
   CheckCircle2,
   Share2,
   Check,
@@ -25,21 +24,21 @@ interface LeaderboardCardProps {
 function DeltaBadge({ deltaInfo }: { deltaInfo: RankDeltaInfo }) {
   if (deltaInfo.type === 'up') {
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+      <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-bold bg-neutral-100 text-neutral-800 border border-neutral-300">
         {deltaInfo.label}
       </span>
     );
   }
   if (deltaInfo.type === 'down') {
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+      <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-300">
         {deltaInfo.label}
       </span>
     );
   }
   if (deltaInfo.type === 'new') {
     return (
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+      <span className="inline-flex items-center px-1 py-0.2 rounded text-[9px] font-bold bg-neutral-100 text-neutral-900 border border-neutral-300">
         NEW
       </span>
     );
@@ -60,7 +59,7 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
   const { displayDomain } = sanitizeAndNormalizeUrl(bid.url);
   const isRank1 = rank === 1;
   const isPaid = bid.status === 'paid';
-  const favicon = bid.icon_url || getFaviconUrl(bid.url, 128);
+  const favicon = bid.icon_url || getFaviconUrl(bid.url, 64);
   const timeFormatted = formatRelativeTime(bid.updated_at || bid.created_at);
   const deltaInfo = getRankDelta(bid.id, rank);
 
@@ -97,8 +96,8 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
           url: shareUrl,
         });
         return;
-      } catch (err) {
-        // Fallback to clipboard if share dialog dismissed or unsupported
+      } catch {
+        // Fallback to clipboard
       }
     }
 
@@ -106,23 +105,22 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
       try {
         await navigator.clipboard.writeText(shareUrl);
         setCopiedShare(true);
-        setTimeout(() => setCopiedShare(false), 2200);
+        setTimeout(() => setCopiedShare(false), 2000);
       } catch (err) {
         console.error('Clipboard copy failed', err);
       }
     }
   };
 
-  const initialLetter = (bid.title || displayDomain).charAt(0).toUpperCase() || 'W';
-
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // If the click originated from an interactive element (button or inner link), let its own handler execute
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
       return;
     }
     window.open(`/go/${bid.id}`, '_blank', 'noopener,noreferrer');
   };
+
+  const initialLetter = (bid.title || displayDomain).charAt(0).toUpperCase() || 'W';
 
   return (
     <div
@@ -139,178 +137,150 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
       tabIndex={0}
       role="link"
       aria-label={`Visit ${bid.title || displayDomain}`}
-      className={`group rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-5 relative overflow-hidden transition-all duration-200 shadow-sm cursor-pointer ${
+      className={`group w-full py-3.5 px-4 sm:px-5 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${
         isRank1
-          ? 'bg-[#faf5ee] hover:bg-[#fbf6ee] border-2 border-[#c2652a] ring-1 ring-[#c2652a]/20 shadow-lg shadow-[#c2652a]/10 hover:border-[#a8521d] hover:shadow-xl hover:shadow-[#c2652a]/15'
-          : 'bg-[#faf5ee] hover:bg-[#fcf8f2] border border-[#d8d0c8] hover:border-[#c2652a]/70 hover:shadow-md'
+          ? 'bg-white hover:bg-[#faf7f2] border-neutral-900/80 shadow-xs'
+          : 'bg-white hover:bg-[#faf7f2] border-[#e2dad2] hover:border-neutral-400'
       }`}
     >
-      {/* Subtle warm terracotta highlight background for #1 Achievement */}
-      {isRank1 && (
-        <div className="absolute inset-0 bg-gradient-to-r from-[#c2652a]/10 via-[#faf5ee]/40 to-transparent pointer-events-none" />
-      )}
-
-      {/* Rank Number & Achievement Crown */}
-      <div className="flex sm:flex-col items-center justify-between sm:justify-start gap-1.5 z-10 shrink-0 min-w-[3.5rem]">
-        {isRank1 ? (
-          <div className="flex items-center sm:flex-col gap-1 text-[#c2652a]">
-            <div className="w-8 h-8 rounded-xl bg-[#c2652a]/15 border border-[#c2652a]/30 flex items-center justify-center shadow-xs">
-              <Trophy className="w-4 h-4 text-[#c2652a]" />
-            </div>
-            <span className="font-display font-black text-xl sm:text-2xl text-[#c2652a] tracking-tight">
-              #1
-            </span>
-          </div>
-        ) : (
-          <div
-            className={`font-display text-xl sm:text-2xl font-bold pt-0.5 ${
-              rank <= 3 ? 'text-[#c2652a]' : 'text-[#605850]'
+      {/* Left Section: Rank + Favicon + Identity & Core Metadata */}
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+        {/* Rank Indicator */}
+        <div className="flex flex-col items-center justify-center shrink-0 w-8 sm:w-10 text-center">
+          <span
+            className={`font-mono text-sm sm:text-base font-bold tabular-nums leading-none ${
+              isRank1 ? 'text-neutral-950 font-black' : rank <= 3 ? 'text-neutral-800' : 'text-neutral-500'
             }`}
           >
             #{rank}
-          </div>
-        )}
-        <DeltaBadge deltaInfo={deltaInfo} />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 z-10 space-y-2.5 min-w-0">
-        {/* Header Row: Favicon + Title + Verified Badge + Price + Actions */}
-        <div className="flex justify-between items-start gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Favicon or Fallback Monogram Avatar */}
-            <div className="w-10 h-10 rounded-xl bg-[#f2ece4] flex items-center justify-center shrink-0 border border-[#d8d0c8] overflow-hidden shadow-xs">
-              {!imgError ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={favicon}
-                  alt=""
-                  className="w-6 h-6 object-contain"
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <span className="font-display font-bold text-lg text-[#c2652a]">
-                  {initialLetter}
-                </span>
-              )}
-            </div>
-
-            {/* Title & Domain & Verified Badge */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={`/go/${bid.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="font-bold text-xl sm:text-2xl font-display text-[#1a1a1a] group-hover:text-[#c2652a] transition-colors flex items-center gap-1.5 truncate"
-                >
-                  <span className="truncate">{bid.title || displayDomain}</span>
-                  <ArrowUpRight className="w-4 h-4 text-[#605850] opacity-60 group-hover:opacity-100 group-hover:text-[#c2652a] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
-                </a>
-
-                {/* Verified Listing Badge */}
-                {isPaid && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#c2652a]/10 text-[#c2652a] border border-[#c2652a]/30 shrink-0"
-                    title="Verified Active Placement"
-                  >
-                    <CheckCircle2 className="w-3 h-3 text-[#c2652a]" />
-                    <span>Verified</span>
-                  </span>
-                )}
-
-                {/* Champion Pill on #1 */}
-                {isRank1 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#c2652a] text-white shadow-xs shrink-0">
-                    Leader
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs text-[#605850] truncate font-medium mt-0.5">
-                {displayDomain}
-              </p>
-            </div>
-          </div>
-
-          {/* Price & Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Share Button */}
-            <button
-              onClick={handleShare}
-              className={`p-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold ${
-                copiedShare
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                  : 'border-[#d8d0c8] bg-[#faf5ee] hover:bg-[#f2ece4] text-[#605850] hover:text-[#1a1a1a]'
-              }`}
-              title="Share listing on social media"
-              aria-label="Share listing"
-            >
-              {copiedShare ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden sm:inline text-[10px]">Copied!</span>
-                </>
-              ) : (
-                <Share2 className="w-3.5 h-3.5" />
-              )}
-            </button>
-
-            {/* Watchlist Star */}
-            <button
-              onClick={handleToggleStar}
-              className="p-1.5 rounded-lg border border-[#d8d0c8] bg-[#faf5ee] hover:bg-[#f2ece4] text-[#605850] hover:text-amber-600 transition-colors cursor-pointer"
-              title={bookmarked ? 'Remove from Watchlist' : 'Bookmark to Watchlist'}
-            >
-              <Star
-                className={`w-3.5 h-3.5 ${
-                  bookmarked ? 'fill-amber-500 text-amber-500' : 'text-[#605850]'
-                }`}
-              />
-            </button>
-
-            {/* Bid Amount */}
-            <span
-              className={`font-semibold text-lg sm:text-xl pl-1 ${
-                bid.amount > 0 ? 'text-[#c2652a] font-display' : 'text-[#605850]'
-              }`}
-            >
-              {bid.amount > 0 ? formatCentsToDollars(bid.amount) : 'FREE'}
-            </span>
+          </span>
+          <div className="mt-1 scale-90 sm:scale-100">
+            <DeltaBadge deltaInfo={deltaInfo} />
           </div>
         </div>
 
-        {/* Description snippet */}
-        {bid.description && (
-          <p className="text-sm sm:text-base text-[#605850] leading-relaxed line-clamp-2">
-            {bid.description}
-          </p>
-        )}
+        {/* Favicon */}
+        <div className="w-8 h-8 rounded-lg bg-[#f6f2ec] border border-[#d8d0c8] flex items-center justify-center shrink-0 overflow-hidden">
+          {!imgError ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={favicon}
+              alt=""
+              className="w-4 h-4 object-contain"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <span className="font-mono font-bold text-xs text-neutral-700">
+              {initialLetter}
+            </span>
+          )}
+        </div>
 
-        {/* Bottom Meta Row: Category Badge + Date + Clicks + Outbid Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-[#605850] border-t border-[#d8d0c8]/60">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="px-2 py-0.5 rounded-md bg-[#f2ece4] text-[#3a302a] font-semibold border border-[#d8d0c8]">
-              {bid.category || 'Other'}
-            </span>
-            <span>{timeFormatted}</span>
-            <span className="font-semibold text-[#1a1a1a] flex items-center gap-1">
-              <MousePointerClick className="w-3.5 h-3.5 text-[#c2652a]" />
-              {bid.click_count || 0} clicks
-            </span>
+        {/* Title, Domain, Category & Sponsored Badging */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a
+              href={`/go/${bid.id}`}
+              target="_blank"
+              rel="sponsored noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="font-semibold text-sm sm:text-base text-neutral-900 group-hover:text-neutral-950 transition-colors inline-flex items-center gap-1 truncate max-w-full"
+              title={bid.url}
+            >
+              <span className="truncate">{bid.title || displayDomain}</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 opacity-60 group-hover:opacity-100 group-hover:text-neutral-800 transition-all shrink-0" />
+            </a>
+
+            {isPaid && (
+              <span
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-medium bg-neutral-100 text-neutral-700 border border-neutral-200 shrink-0"
+                title="Verified Paid Listing"
+              >
+                <CheckCircle2 className="w-2.5 h-2.5 text-neutral-600" />
+                <span>Verified</span>
+              </span>
+            )}
           </div>
 
+          {/* Subline: Domain + Category + Timestamp + Unobtrusive Sponsored Badge */}
+          <div className="flex items-center gap-2 text-xs text-neutral-500 font-mono mt-0.5 flex-wrap">
+            <span className="text-neutral-600 truncate max-w-[140px] sm:max-w-none">{displayDomain}</span>
+            <span>•</span>
+            <span className="text-neutral-500">{bid.category || 'Other'}</span>
+            <span>•</span>
+            <span>{timeFormatted}</span>
+            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] uppercase font-bold tracking-wider text-neutral-600 bg-neutral-100 border border-neutral-200">
+              Sponsored
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Section: Core Metrics (Clicks + Amount) + Row Actions */}
+      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#f0ebe3]">
+        {/* Click Count Metric */}
+        <div className="flex items-center gap-1 text-xs font-mono text-neutral-600 tabular-nums" title="24h Deduplicated Clicks">
+          <MousePointerClick className="w-3.5 h-3.5 text-neutral-400" />
+          <span>{(bid.click_count || 0).toLocaleString()}</span>
+          <span className="text-[10px] text-neutral-400 hidden sm:inline">clicks</span>
+        </div>
+
+        {/* Verified Bid Amount Metric */}
+        <div className="text-right min-w-[4rem] sm:min-w-[5rem]">
+          <span
+            className={`font-mono text-sm sm:text-base font-bold tabular-nums ${
+              bid.amount > 0 ? 'text-neutral-950 font-black' : 'text-neutral-500'
+            }`}
+          >
+            {bid.amount > 0 ? formatCentsToDollars(bid.amount) : 'FREE'}
+          </span>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Share Button */}
+          <button
+            onClick={handleShare}
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer flex items-center text-xs ${
+              copiedShare
+                ? 'bg-neutral-100 border-neutral-300 text-neutral-900'
+                : 'border-transparent hover:border-neutral-300 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-800'
+            }`}
+            title="Share listing link"
+            aria-label="Share listing"
+          >
+            {copiedShare ? (
+              <Check className="w-3.5 h-3.5 text-neutral-800" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Watchlist Star */}
+          <button
+            onClick={handleToggleStar}
+            className="p-1.5 rounded-lg border border-transparent hover:border-neutral-300 hover:bg-neutral-100 text-neutral-400 hover:text-amber-500 transition-colors cursor-pointer"
+            title={bookmarked ? 'Remove from Watchlist' : 'Bookmark to Watchlist'}
+          >
+            <Star
+              className={`w-3.5 h-3.5 ${
+                bookmarked ? 'fill-amber-500 text-amber-500' : 'text-neutral-400'
+              }`}
+            />
+          </button>
+
+          {/* Outbid CTA */}
           {onTopUp && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onTopUp(bid);
               }}
-              className="px-3.5 py-1 rounded-xl text-xs font-bold bg-[#c2652a] text-white hover:bg-[#a8521d] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-white transition-colors flex items-center gap-1 cursor-pointer shadow-2xs shrink-0"
+              title="Place a higher bid to overtake this rank"
             >
-              <Zap className="w-3 h-3 text-white" />
-              <span>Outbid</span>
+              <Zap className="w-3 h-3 text-neutral-200" />
+              <span className="hidden xs:inline">Outbid</span>
             </button>
           )}
         </div>

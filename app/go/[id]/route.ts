@@ -49,15 +49,26 @@ export async function GET(
       return NextResponse.redirect(siteUrl);
     }
 
-    const destinationUrl =
+    const rawDestination =
       bid.url.startsWith('http://') || bid.url.startsWith('https://')
         ? bid.url
         : `https://${bid.url}`;
 
     // Validate destination safety before redirecting (anti-open redirect / anti-internal SSRF)
-    if (!isSafePublicUrl(destinationUrl)) {
-      console.warn(`[Tracked Redirect Security] Blocked redirect to unsafe/private destination: ${destinationUrl}`);
+    if (!isSafePublicUrl(rawDestination)) {
+      console.warn(`[Tracked Redirect Security] Blocked redirect to unsafe/private destination: ${rawDestination}`);
       return NextResponse.redirect(siteUrl);
+    }
+
+    // SEO Compliance & Privacy: Clear all query parameters and fragments before executing redirect
+    let destinationUrl = rawDestination;
+    try {
+      const parsedUrl = new URL(rawDestination);
+      parsedUrl.search = '';
+      parsedUrl.hash = '';
+      destinationUrl = parsedUrl.toString();
+    } catch {
+      destinationUrl = rawDestination;
     }
 
     // 2. Filter out bots and automated crawlers from inflating click stats

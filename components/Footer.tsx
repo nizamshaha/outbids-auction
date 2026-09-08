@@ -69,6 +69,9 @@ export function Footer() {
           <Link href="/#rules" className="hover:text-[#c2652a] transition-colors">
             Rules
           </Link>
+          <Link href="/history" className="hover:text-[#c2652a] transition-colors">
+            My Bids
+          </Link>
           <Link href="/terms" className="hover:text-[#c2652a] transition-colors">
             Terms
           </Link>

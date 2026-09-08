@@ -47,6 +47,7 @@ export interface Bid {
   click_count?: number;
   view_count?: number;
   stripe_payment_intent_id?: string | null;
+  email?: string | null;
 }
 
 export interface CreateCheckoutPayload {
@@ -56,6 +57,7 @@ export interface CreateCheckoutPayload {
   title?: string;
   description?: string;
   isFreeTier?: boolean;
+  email?: string;
 }
 
 export interface CheckoutResponse {

@@ -55,9 +55,22 @@ export function LeaderboardItem({ bid, rank }: LeaderboardItemProps) {
     minute: '2-digit',
   });
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    const destination = bid.id ? `/go/${bid.id}` : normalizedUrl;
+    window.open(destination, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div
-      className={`group relative flex items-center justify-between p-4 rounded-2xl transition-all duration-300 hover:scale-[1.01] ${cardBorderClass}`}
+      onClick={handleCardClick}
+      tabIndex={0}
+      role="link"
+      aria-label={`Visit ${displayDomain}`}
+      className={`group relative flex items-center justify-between p-4 rounded-2xl transition-all duration-200 hover:scale-[1.01] cursor-pointer shadow-sm ${cardBorderClass}`}
     >
       {/* Left side: Rank + Domain + Favicon */}
       <div className="flex items-center gap-3.5 min-w-0">
@@ -86,9 +99,10 @@ export function LeaderboardItem({ bid, rank }: LeaderboardItemProps) {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <a
-                href={normalizedUrl}
+                href={bid.id ? `/go/${bid.id}` : normalizedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="inline-flex items-center gap-1.5 font-bold text-gray-100 hover:text-indigo-400 text-base sm:text-lg transition-colors group-hover:underline underline-offset-4 truncate max-w-[200px] sm:max-w-md"
                 title={normalizedUrl}
               >

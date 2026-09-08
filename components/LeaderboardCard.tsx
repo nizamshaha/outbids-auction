@@ -115,12 +115,34 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
 
   const initialLetter = (bid.title || displayDomain).charAt(0).toUpperCase() || 'W';
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If the click originated from an interactive element (button or inner link), let its own handler execute
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    window.open(`/go/${bid.id}`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div
-      className={`rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-5 relative overflow-hidden transition-all shadow-sm ${
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const target = e.target as HTMLElement;
+          if (!target.closest('button') && !target.closest('a')) {
+            e.preventDefault();
+            window.open(`/go/${bid.id}`, '_blank', 'noopener,noreferrer');
+          }
+        }
+      }}
+      tabIndex={0}
+      role="link"
+      aria-label={`Visit ${bid.title || displayDomain}`}
+      className={`group rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-5 relative overflow-hidden transition-all duration-200 shadow-sm cursor-pointer ${
         isRank1
-          ? 'bg-[#faf5ee] border-2 border-[#c2652a] ring-1 ring-[#c2652a]/20 shadow-lg shadow-[#c2652a]/10'
-          : 'bg-[#faf5ee] border border-[#d8d0c8] hover:border-[#c2652a]/50'
+          ? 'bg-[#faf5ee] hover:bg-[#fbf6ee] border-2 border-[#c2652a] ring-1 ring-[#c2652a]/20 shadow-lg shadow-[#c2652a]/10 hover:border-[#a8521d] hover:shadow-xl hover:shadow-[#c2652a]/15'
+          : 'bg-[#faf5ee] hover:bg-[#fcf8f2] border border-[#d8d0c8] hover:border-[#c2652a]/70 hover:shadow-md'
       }`}
     >
       {/* Subtle warm terracotta highlight background for #1 Achievement */}
@@ -180,10 +202,11 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
                   href={`/go/${bid.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-xl sm:text-2xl font-display text-[#1a1a1a] hover:text-[#c2652a] transition-colors flex items-center gap-1.5 group truncate"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-bold text-xl sm:text-2xl font-display text-[#1a1a1a] group-hover:text-[#c2652a] transition-colors flex items-center gap-1.5 truncate"
                 >
                   <span className="truncate">{bid.title || displayDomain}</span>
-                  <ArrowUpRight className="w-4 h-4 text-[#605850] opacity-60 group-hover:opacity-100 group-hover:text-[#c2652a] transition-all shrink-0" />
+                  <ArrowUpRight className="w-4 h-4 text-[#605850] opacity-60 group-hover:opacity-100 group-hover:text-[#c2652a] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
                 </a>
 
                 {/* Verified Listing Badge */}
@@ -280,8 +303,11 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
 
           {onTopUp && (
             <button
-              onClick={() => onTopUp(bid)}
-              className="px-3.5 py-1 rounded-xl text-xs font-bold bg-[#c2652a] text-white hover:bg-[#c2652a]/90 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTopUp(bid);
+              }}
+              className="px-3.5 py-1 rounded-xl text-xs font-bold bg-[#c2652a] text-white hover:bg-[#a8521d] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs ml-auto"
             >
               <Zap className="w-3 h-3 text-white" />
               <span>Outbid</span>

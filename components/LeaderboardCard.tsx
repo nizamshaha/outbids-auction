@@ -84,14 +84,17 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
     e.preventDefault();
     e.stopPropagation();
 
-    const shareText = `I just claimed my spot on the outbids.auction leaderboard. Outbid me if you can: https://outbids.auction`;
+    const displayName = bid.title?.trim() || displayDomain;
+    const shareUrl = `https://outbids.auction/bid/${bid.id}`;
+    const shareTitle = `Rank #${rank} - ${displayName} on Outbids!`;
+    const shareText = `I just secured the #${rank} spot on the live digital visibility board. Outbid me if you can.`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Outbids.auction — Live Leaderboard',
+          title: shareTitle,
           text: shareText,
-          url: 'https://outbids.auction',
+          url: shareUrl,
         });
         return;
       } catch (err) {
@@ -101,7 +104,7 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
 
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
-        await navigator.clipboard.writeText(shareText);
+        await navigator.clipboard.writeText(shareUrl);
         setCopiedShare(true);
         setTimeout(() => setCopiedShare(false), 2200);
       } catch (err) {

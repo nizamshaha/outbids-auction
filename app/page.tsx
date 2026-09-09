@@ -5,7 +5,6 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { HeroBidding } from '@/components/HeroBidding';
 import { Leaderboard } from '@/components/Leaderboard';
-import { CategorySidebar } from '@/components/CategorySidebar';
 import { CategoryNavRail } from '@/components/CategoryNavRail';
 import { RulesGrid } from '@/components/RulesGrid';
 import { Footer } from '@/components/Footer';
@@ -176,8 +175,8 @@ function MainContent() {
   const totalPoolDollars = Math.round(stats.totalVolume / 100);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-on-surface selection:bg-primary selection:text-white">
-      {/* 1. Sahara Sticky Editorial Header */}
+    <div className="flex flex-col min-h-screen bg-white text-gray-900 selection:bg-[#FF4B4B] selection:text-white">
+      {/* 1. Minimalist Header */}
       <Header
         isConnected={isConnected}
         totalBids={stats.count}
@@ -185,19 +184,26 @@ function MainContent() {
         totalVolumeCents={stats.totalVolume}
       />
 
+      {/* 2. Horizontal Category Navigation Rail directly below Header */}
+      <CategoryNavRail
+        selectedCategory={selectedCategory}
+        onSelectCategory={handleCategoryChange}
+        categoryCounts={categoryCounts}
+      />
+
       {/* Banner for Checkout results */}
       {notification && (
         <div
           className={`w-full py-3 px-4 text-center text-sm font-semibold flex items-center justify-center gap-2 border-b animate-in slide-in-from-top duration-300 ${
             notification.type === 'success'
-              ? 'bg-surface-container-highest text-emerald-800 border-emerald-500/40'
-              : 'bg-error-container text-error border-error/30'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
           }`}
         >
           {notification.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           ) : (
-            <XCircle className="w-4 h-4 text-error shrink-0" />
+            <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
           )}
           <span>{notification.message}</span>
           <button
@@ -209,7 +215,7 @@ function MainContent() {
         </div>
       )}
 
-      {/* 2. Sahara Full-Width Hero Section */}
+      {/* 3. Hero CTA Section: Claim #1 for $[Dynamic Price] */}
       <HeroBidding
         isConnected={isConnected}
         highestBidCents={stats.highest}
@@ -221,46 +227,24 @@ function MainContent() {
         onClearSelectedBid={() => setSelectedBidForTopUp(null)}
       />
 
-      {/* 3. Main Content: 2-Column Grid (Category Sidebar + Leaderboard Stream) */}
-      <main className="flex-1 py-10 md:py-12">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8 xl:gap-12 items-start">
-          {/* Left Category Sidebar */}
-          <CategorySidebar
-            selectedCategory={selectedCategory}
-            onSelectCategory={handleCategoryChange}
-            categoryPools={categoryPools}
-            categoryCounts={categoryCounts}
-            totalPoolDollars={totalPoolDollars}
-            totalCount={stats.count}
-          />
-
-          {/* Right Main Leaderboard Feed */}
-          <div className="flex-1 min-w-0 w-full">
-            {/* Horizontal Category Nav Rail */}
-            <CategoryNavRail
-              selectedCategory={selectedCategory}
-              onSelectCategory={handleCategoryChange}
-              categoryCounts={categoryCounts}
-            />
-
-            <Leaderboard
-              selectedCategory={selectedCategory}
-              refreshTrigger={refreshTrigger}
-              onOptimisticBid={optimisticBid}
-              onStatsUpdate={handleStatsUpdate}
-              onConnectionChange={handleConnectionChange}
-              onSelectBidAmount={handleSelectBidAmount}
-              onSelectBidForTopUp={handleSelectBidForTopUp}
-              onCategoryMetricsCalculated={handleCategoryMetrics}
-            />
-          </div>
-        </div>
+      {/* 4. Main Content: Centered Minimalist Leaderboard Stream */}
+      <main className="flex-1 py-8 sm:py-10 max-w-4xl mx-auto px-4 w-full">
+        <Leaderboard
+          selectedCategory={selectedCategory}
+          refreshTrigger={refreshTrigger}
+          onOptimisticBid={optimisticBid}
+          onStatsUpdate={handleStatsUpdate}
+          onConnectionChange={handleConnectionChange}
+          onSelectBidAmount={handleSelectBidAmount}
+          onSelectBidForTopUp={handleSelectBidForTopUp}
+          onCategoryMetricsCalculated={handleCategoryMetrics}
+        />
       </main>
 
-      {/* 4. Sahara Editorial Rules Section */}
+      {/* 5. Editorial Rules Section */}
       <RulesGrid />
 
-      {/* 5. Sahara Editorial Footer */}
+      {/* 6. Footer */}
       <Footer />
     </div>
   );
@@ -270,7 +254,7 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-text-muted text-sm bg-background font-serif">
+        <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm bg-white font-mono">
           Loading attention market...
         </div>
       }

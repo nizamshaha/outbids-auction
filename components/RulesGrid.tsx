@@ -29,41 +29,41 @@ export function RulesGrid() {
   ];
 
   return (
-    <section id="rules" className="bg-surface-container border-y border-outline-variant py-16 md:py-20 px-4 my-12">
+    <section id="rules" className="bg-white border-y border-gray-100 py-16 md:py-20 px-4 my-12">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-12 md:gap-16">
-        {/* Left Column: Editorial Headline */}
+        {/* Left Column: Headline */}
         <div className="md:w-1/3">
-          <div className="text-xs font-bold text-primary uppercase tracking-widest mb-4">
+          <div className="text-xs font-bold text-[#FF4B4B] uppercase tracking-widest mb-3">
             Rules / How it works
           </div>
-          <h2 className="text-4xl sm:text-5xl font-bold mb-2 font-display text-on-surface">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-1 text-gray-950 tracking-tight">
             Straightforward rules.
           </h2>
-          <h2 className="text-4xl sm:text-5xl font-bold text-primary mb-6 font-display">
+          <h2 className="text-3xl sm:text-4xl font-bold text-[#FF4B4B] mb-5 tracking-tight">
             Transparent results.
           </h2>
-          <p className="text-text-muted mb-8 text-base sm:text-lg leading-relaxed">
+          <p className="text-gray-500 mb-8 text-sm sm:text-base leading-relaxed">
             Every confirmed bid secures real public placement, governed by open math rather than hidden algorithms.
           </p>
-          <div className="text-xs font-bold text-text-muted uppercase tracking-widest">
+          <div className="text-xs font-mono text-gray-400 uppercase tracking-widest">
             01–04 · TRANSPARENT BY DESIGN
           </div>
         </div>
 
         {/* Right Column: 2x2 Grid of Rules */}
-        <div className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-5">
           {rules.map((rule) => (
             <div
               key={rule.num}
-              className="bg-surface p-7 sm:p-8 rounded-xl border border-outline-variant shadow-sm space-y-4"
+              className="bg-white p-6 sm:p-7 rounded-xl border border-gray-100 shadow-2xs space-y-3"
             >
-              <div className="w-10 h-10 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-display text-lg font-bold border border-primary/20">
+              <div className="w-9 h-9 rounded-full bg-[#FFF5F3] text-[#FF4B4B] flex items-center justify-center font-mono text-sm font-bold border border-[#FFE4E0]">
                 {rule.num}
               </div>
-              <h3 className="font-bold text-xl sm:text-2xl font-display text-on-surface">
+              <h3 className="font-bold text-lg sm:text-xl text-gray-900">
                 {rule.title}
               </h3>
-              <p className="text-sm sm:text-base text-text-muted leading-relaxed">
+              <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
                 {rule.description}
               </p>
             </div>

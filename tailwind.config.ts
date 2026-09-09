@@ -10,10 +10,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#c2652a",
-        "primary-container": "#e08850",
-        "primary-fixed": "#fbe8d8",
-        "primary-fixed-dim": "#f0a878",
+        coral: "#FF4B4B",
+        "coral-hover": "#E03E3E",
+        "coral-tint": "#FFF5F3",
+        "coral-border": "#FFE4E0",
+        primary: "#FF4B4B",
+        "primary-container": "#E03E3E",
+        "primary-fixed": "#FFF5F3",
+        "primary-fixed-dim": "#FFE4E0",
         "on-primary": "#ffffff",
         "on-primary-container": "#fbe8d8",
         "on-primary-fixed": "#401a08",

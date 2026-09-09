@@ -70,6 +70,38 @@ export const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   Other: Tag,
 };
 
+export const CATEGORY_SHORT_LABEL: Record<string, string> = {
+  All: 'All',
+  'SEO & AI Visibility': 'AI & SEO',
+  'AI Agents & Infrastructure': 'AI Agents',
+  'AI Media Generation': 'AI Media',
+  'Developer Tools': 'Developer',
+  'Productivity & Personal Tools': 'Productivity',
+  'Writing & Content': 'Writing',
+  'People & Profiles': 'People',
+  'Directories, Launch & Discovery': 'Directories',
+  'Design & Creative': 'Design',
+  'Agencies, Studios & Services': 'Agencies',
+  'Marketing & Advertising': 'Marketing',
+  'Social Media & Creator Tools': 'Social',
+  'Education & Learning': 'Education',
+  'Sales & Lead Generation': 'Sales',
+  'Travel, Local & Lifestyle': 'Travel',
+  'Crypto, Web3 & Investing': 'Crypto & Web3',
+  'Domains & Web Assets': 'Domains',
+  'Health, Fitness & Wellness': 'Health',
+  'Leaderboards & Attention Markets': 'Leaderboards',
+  'Media & News': 'Media',
+  'Business, Finance & Legal': 'Finance',
+  'Ecommerce & Retail': 'Ecommerce',
+  'Hiring, Jobs & Careers': 'Careers',
+  'Audio, Voice & Podcasting': 'Audio',
+  'Security, Privacy & Compliance': 'Security',
+  'Real Estate & Property': 'Real Estate',
+  'Games & Entertainment': 'Gaming',
+  Other: 'Other',
+};
+
 interface CategoryNavRailProps {
   selectedCategory: string;
   onSelectCategory: (category: string) => void;
@@ -111,28 +143,29 @@ export function CategoryNavRail({
   };
 
   return (
-    <div className="relative w-full my-4">
-      <div className="flex items-center gap-1.5">
+    <div className="relative w-full bg-white border-b border-gray-100 py-2.5">
+      <div className="max-w-7xl mx-auto px-4 flex items-center gap-1.5">
         {/* Scroll Left Button */}
         <button
           type="button"
           onClick={() => scroll('left')}
-          className="hidden sm:flex items-center justify-center w-7 h-7 rounded-lg border border-[#d8d0c8] bg-white hover:bg-neutral-100 text-neutral-600 transition-colors shrink-0 cursor-pointer shadow-2xs"
+          className="hidden sm:flex items-center justify-center w-6 h-6 rounded-full border border-gray-200 bg-white hover:bg-gray-100 text-gray-500 transition-colors shrink-0 cursor-pointer shadow-2xs"
           title="Scroll categories left"
           aria-label="Scroll left"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-3.5 h-3.5" />
         </button>
 
         {/* Scrollable Category Rail */}
         <div
           ref={scrollContainerRef}
-          className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 scroll-smooth w-full"
+          className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 scroll-smooth w-full"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {categories.map((cat) => {
             const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
             const Icon = CATEGORY_ICON_MAP[cat] || Tag;
+            const displayLabel = CATEGORY_SHORT_LABEL[cat] || cat;
             const count = cat.toLowerCase() === 'all'
               ? undefined
               : categoryCounts[cat.toLowerCase()];
@@ -142,20 +175,20 @@ export function CategoryNavRail({
                 key={cat}
                 type="button"
                 onClick={() => handleSelect(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer shrink-0 flex items-center gap-1.5 border ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer shrink-0 flex items-center gap-1.5 border ${
                   isSelected
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
-                    : 'bg-white text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 border-[#d8d0c8]'
+                    ? 'bg-[#FF4B4B] text-white border-[#FF4B4B] shadow-xs'
+                    : 'bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50 border-gray-200'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-neutral-500'}`} />
-                <span>{cat}</span>
+                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-gray-400'}`} />
+                <span>{displayLabel}</span>
                 {typeof count === 'number' && count > 0 && (
                   <span
                     className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full tabular-nums ${
                       isSelected
-                        ? 'bg-neutral-800 text-neutral-300'
-                        : 'bg-neutral-100 text-neutral-600'
+                        ? 'bg-white/25 text-white'
+                        : 'bg-gray-100 text-gray-500'
                     }`}
                   >
                     {count}
@@ -170,11 +203,11 @@ export function CategoryNavRail({
         <button
           type="button"
           onClick={() => scroll('right')}
-          className="hidden sm:flex items-center justify-center w-7 h-7 rounded-lg border border-[#d8d0c8] bg-white hover:bg-neutral-100 text-neutral-600 transition-colors shrink-0 cursor-pointer shadow-2xs"
+          className="hidden sm:flex items-center justify-center w-6 h-6 rounded-full border border-gray-200 bg-white hover:bg-gray-100 text-gray-500 transition-colors shrink-0 cursor-pointer shadow-2xs"
           title="Scroll categories right"
           aria-label="Scroll right"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

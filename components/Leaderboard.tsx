@@ -151,16 +151,46 @@ export function Leaderboard({
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('bids')
         .select('*')
-        .eq('status', 'paid')
+        .eq('status', 'paid');
+
+      // Dynamic Category Filtering
+      if (selectedCategory && selectedCategory.toLowerCase() !== 'all') {
+        query = query.ilike('category', selectedCategory);
+      }
+
+      // Tie-Breaking Logic: ORDER BY amount DESC, created_at ASC
+      query = query
         .order('amount', { ascending: false })
         .order('created_at', { ascending: true });
 
+      const { data, error: fetchError } = await query;
+
       if (fetchError) throw fetchError;
 
-      const sortedData = sortRankBids((data as Bid[]) || []);
+      // Cumulative Top-Ups: Aggregate total payment amount per listing_id / url
+      const aggregatedMap = new Map<string, Bid>();
+      ((data as Bid[]) || []).forEach((row) => {
+        const key = row.id || row.url;
+        const existing = aggregatedMap.get(key);
+        if (existing) {
+          existing.amount += (row.amount || 0);
+          // Preserve earliest created_at for deterministic tie-breaking (older wins ties)
+          if (new Date(row.created_at).getTime() < new Date(existing.created_at).getTime()) {
+            existing.created_at = row.created_at;
+          }
+          if (row.click_count) {
+            existing.click_count = (existing.click_count || 0) + row.click_count;
+          }
+        } else {
+          aggregatedMap.set(key, { ...row });
+        }
+      });
+
+      const aggregatedList = Array.from(aggregatedMap.values());
+      const sortedData = sortRankBids(aggregatedList);
       setBids(sortedData);
       emitStatsAndSnapshot(sortedData);
     } catch (err: any) {
@@ -169,7 +199,7 @@ export function Leaderboard({
     } finally {
       setLoading(false);
     }
-  }, [sortRankBids, emitStatsAndSnapshot]);
+  }, [selectedCategory, sortRankBids, emitStatsAndSnapshot]);
 
   // Instant Optimistic Bid Injection (0ms UI update upon checkout completion)
   useEffect(() => {
@@ -193,12 +223,10 @@ export function Leaderboard({
     });
   }, [onOptimisticBid, sortRankBids, emitStatsAndSnapshot]);
 
-  // Trigger re-fetch when external refresh counter changes
+  // Trigger re-fetch when external refresh counter or selected category changes
   useEffect(() => {
-    if (refreshTrigger && refreshTrigger > 0) {
-      fetchPaidBids();
-    }
-  }, [refreshTrigger, fetchPaidBids]);
+    fetchPaidBids();
+  }, [refreshTrigger, selectedCategory, fetchPaidBids]);
 
   // Self-Healing Window Focus & Tab Visibility Re-Sync + 15s Heartbeat
   useEffect(() => {
@@ -402,9 +430,9 @@ export function Leaderboard({
     <div className="w-full">
       {/* --- LEADERBOARD CONTROLS & TABS --- */}
       <div className="w-full mb-6 space-y-4">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant">
-          {/* Sahara Temporal Tabs */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-container border border-outline-variant text-xs font-semibold overflow-x-auto scrollbar-none">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+          {/* Temporal Tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200/80 text-xs font-semibold overflow-x-auto scrollbar-none">
             <button
               onClick={() => {
                 setActiveTab('all');
@@ -412,8 +440,8 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-gray-900 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
@@ -427,11 +455,11 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'today'
-                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-gray-900 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <Sparkles className="w-3.5 h-3.5 text-[#FF4B4B]" />
               <span>Today (24h)</span>
             </button>
 
@@ -442,8 +470,8 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'week'
-                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-gray-900 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -457,12 +485,12 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'latest'
-                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-gray-900 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Latest Activity</span>
+              <span>Latest</span>
             </button>
 
             <button
@@ -472,8 +500,8 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'watchlist'
-                  ? 'bg-surface text-text-main font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-gray-900 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Star className="w-3.5 h-3.5 text-amber-500" />
@@ -487,8 +515,8 @@ export function Leaderboard({
               }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 activeTab === 'free'
-                  ? 'bg-surface text-emerald-800 font-bold shadow-sm border border-outline-variant'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-white text-emerald-800 font-bold shadow-xs border border-gray-200/80'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               <Gift className="w-3.5 h-3.5 text-emerald-600" />
@@ -503,7 +531,7 @@ export function Leaderboard({
         {/* Search Bar & Active Category Tag */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
-            <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-outline" />
+            <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
@@ -511,26 +539,26 @@ export function Leaderboard({
                 setSearchQuery(e.target.value);
                 setVisibleCount(ITEMS_PER_PAGE);
               }}
-              placeholder="Search listings by title, domain, or category..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-outline-variant bg-surface text-xs text-on-surface placeholder:text-text-muted/60 focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+              placeholder="Search by title, domain, category..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#FF4B4B] focus:border-[#FF4B4B] shadow-xs"
             />
           </div>
 
-          <div className="flex items-center gap-2.5 text-xs text-text-muted font-medium w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-2.5 text-xs text-gray-500 font-medium w-full sm:w-auto justify-between sm:justify-end">
             <span>
-              Showing <strong className="text-on-surface">{filteredBids.length}</strong> listings
+              Showing <strong className="text-gray-900 font-bold">{filteredBids.length}</strong> listings
               {selectedCategory !== 'All' && (
-                <span> in <strong className="text-primary font-bold">{selectedCategory}</strong></span>
+                <span> in <strong className="text-[#FF4B4B] font-bold">{selectedCategory}</strong></span>
               )}
             </span>
 
             {/* Share Board Button */}
             <button
               onClick={handleGlobalShare}
-              className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+              className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
                 copiedGlobalShare
                   ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                  : 'border-outline-variant bg-surface hover:bg-surface-container text-text-main'
+                  : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
               }`}
               title="Share Leaderboard"
             >
@@ -541,8 +569,8 @@ export function Leaderboard({
                 </>
               ) : (
                 <>
-                  <Share2 className="w-3.5 h-3.5 text-primary" />
-                  <span>Share Board</span>
+                  <Share2 className="w-3.5 h-3.5 text-[#FF4B4B]" />
+                  <span>Share</span>
                 </>
               )}
             </button>
@@ -551,9 +579,9 @@ export function Leaderboard({
               onClick={() => fetchPaidBids()}
               disabled={loading}
               title="Refresh Leaderboard"
-              className="p-1.5 rounded-lg border border-outline-variant hover:bg-surface-container transition-colors cursor-pointer text-text-muted hover:text-on-surface"
+              className="p-1.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 transition-colors cursor-pointer text-gray-500 hover:text-gray-900"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#FF4B4B]' : ''}`} />
             </button>
           </div>
         </div>
@@ -561,17 +589,17 @@ export function Leaderboard({
 
       {/* --- ERROR / LOADING STATES --- */}
       {error && (
-        <div className="p-4 rounded-xl bg-error-container border border-error/20 text-error text-xs mb-6">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs mb-6">
           {error}
         </div>
       )}
 
       {loading && bids.length === 0 && (
-        <div className="space-y-4 my-6">
+        <div className="space-y-3 my-6">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="p-6 rounded-xl border border-outline-variant bg-surface animate-pulse h-28"
+              className="p-5 rounded-xl border border-gray-100 bg-white animate-pulse h-20"
             />
           ))}
         </div>
@@ -579,14 +607,14 @@ export function Leaderboard({
 
       {/* --- EMPTY STATE --- */}
       {!loading && filteredBids.length === 0 && (
-        <div className="p-12 text-center rounded-2xl border border-outline-variant bg-surface my-8 space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-surface-container text-primary flex items-center justify-center mx-auto mb-3 font-display font-bold text-xl">
+        <div className="p-12 text-center rounded-2xl border border-gray-200 bg-white my-8 space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-gray-100 text-[#FF4B4B] flex items-center justify-center mx-auto mb-3 font-bold text-xl">
             ✧
           </div>
-          <h3 className="text-lg font-bold text-on-surface font-display">
+          <h3 className="text-lg font-bold text-gray-900">
             {activeTab === 'watchlist' ? 'Your Watchlist is Empty' : 'No listings found'}
           </h3>
-          <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-sm mx-auto leading-relaxed">
             {activeTab === 'watchlist'
               ? 'Click the star icon on any card to track its rank movement and position over time.'
               : searchQuery || selectedCategory !== 'All'
@@ -597,7 +625,7 @@ export function Leaderboard({
       )}
 
       {/* Edge-to-Edge Clean Minimalist Feed Items */}
-      <div className="border-t border-gray-200 my-4 bg-white rounded-xl overflow-hidden shadow-2xs">
+      <div className="border border-gray-100 my-4 bg-white rounded-xl overflow-hidden shadow-2xs">
         {paginatedItems.map((bid, index) => {
           const rank = index + 1;
           const showTop10Divider = rank === 11;
@@ -605,11 +633,11 @@ export function Leaderboard({
           return (
             <React.Fragment key={bid.id}>
               {showTop10Divider && (
-                <div className="relative py-2.5 px-4 flex items-center justify-center bg-neutral-50/80 border-b border-gray-200">
+                <div className="relative py-2 px-4 flex items-center justify-center bg-gray-50 border-b border-gray-100">
                   <div className="absolute inset-0 flex items-center px-4">
-                    <div className="w-full border-t border-dashed border-neutral-300" />
+                    <div className="w-full border-t border-dashed border-gray-200" />
                   </div>
-                  <span className="relative px-3 bg-neutral-50/80 text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest">
+                  <span className="relative px-3 bg-gray-50 text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest">
                     ─── TOP 10 SPOTLIGHT CUTOFF ───
                   </span>
                 </div>

@@ -50,9 +50,9 @@ export function HeroBidding({
     }
   }, [selectedBid]);
 
-  // Calculate dynamic claim price for #1: Highest + $1 (or $1 if 0)
-  const highestBidDollars = highestBidCents > 0 ? highestBidCents / 100 : 0;
-  const claimTopDollars = highestBidDollars > 0 ? Math.ceil(highestBidDollars + 1) : MIN_BID_DOLLARS;
+  // Calculate dynamic claim price for #1: Current #1 + $5 (or $5 if 0)
+  const highestBidDollars = highestBidCents > 0 ? Math.ceil(highestBidCents / 100) : 0;
+  const claimTopDollars = highestBidDollars > 0 ? highestBidDollars + 5 : 5;
 
   // Sync selected amount from podium clicks if provided
   useEffect(() => {
@@ -175,22 +175,22 @@ export function HeroBidding({
   };
 
   return (
-    <section className="py-16 md:py-20 border-b border-outline-variant text-center px-4 bg-surface-container-low">
-      <div className="max-w-4xl mx-auto">
-        {/* Sahara Live Race Pill Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-surface border border-outline-variant text-primary mb-5 shadow-xs">
-          <Trophy className="w-3.5 h-3.5 text-primary" />
-          <span className="font-display">Live Attention Marketplace</span>
+    <section className="py-14 sm:py-18 border-b border-gray-100 text-center px-4 bg-white">
+      <div className="max-w-3xl mx-auto">
+        {/* Live Race Pill Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-700 mb-4">
+          <Trophy className="w-3.5 h-3.5 text-[#FF4B4B]" />
+          <span>Live Attention Marketplace</span>
         </div>
 
-        {/* Sahara Headline */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 font-display text-on-surface tracking-tight">
-          Claim <span className="text-red-500 font-display">#1</span> for <span className="text-primary font-display">${claimTopDollars}</span> +
+        {/* Minimalist Headline: Claim #1 for $[Dynamic Price] */}
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-3 text-gray-950 tracking-tight">
+          Claim <span className="text-[#FF4B4B]">#1</span> for <span className="text-[#FF4B4B]">${claimTopDollars}</span>
         </h1>
 
-        {/* Sahara Editorial Subtitle */}
-        <p className="text-text-muted max-w-xl mx-auto mb-8 text-sm sm:text-base leading-relaxed">
-          New spots start at $1. Paying less than the #1 price still puts you on the board at whatever place that bid can take.
+        {/* Minimalist Subtitle */}
+        <p className="text-gray-500 max-w-lg mx-auto mb-8 text-sm sm:text-base leading-relaxed">
+          New spots start at $1. Outbid the competition to broadcast your website link live.
         </p>
 
         {/* Boosting Active Listing Badge */}
@@ -247,7 +247,7 @@ export function HeroBidding({
                 }}
                 placeholder="Your product URL or @handle"
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-4 rounded-xl border border-outline-variant bg-surface focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-sm sm:text-base text-on-surface placeholder:text-on-surface-variant transition-all shadow-sm disabled:opacity-50"
+                className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white focus:ring-1 focus:ring-[#FF4B4B] focus:border-[#FF4B4B] outline-none text-sm sm:text-base text-gray-900 placeholder:text-gray-400 transition-all shadow-xs disabled:opacity-50"
               />
             </div>
 
@@ -257,22 +257,22 @@ export function HeroBidding({
                 value={category}
                 onChange={(e) => setCategory(e.target.value as BidCategory)}
                 disabled={loading}
-                className="w-full px-4 py-4 rounded-xl border border-outline-variant bg-surface focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-sm text-on-surface appearance-none shadow-sm cursor-pointer disabled:opacity-50 font-semibold"
+                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white focus:ring-1 focus:ring-[#FF4B4B] focus:border-[#FF4B4B] outline-none text-sm text-gray-900 appearance-none shadow-xs cursor-pointer disabled:opacity-50 font-semibold"
               >
                 {PLATFORM_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat} className="bg-surface text-on-surface">
+                  <option key={cat} value={cat} className="bg-white text-gray-900">
                     {cat}
                   </option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-outline text-xs">
+              <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-gray-400 text-xs">
                 ▼
               </div>
             </div>
 
             {/* Amount Input */}
             <div className="w-full sm:w-36 relative">
-              <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-outline">
+              <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-gray-400">
                 <DollarSign className="w-4 h-4" />
               </div>
               <input
@@ -289,8 +289,8 @@ export function HeroBidding({
                 }}
                 placeholder={isFreeMode ? 'Free ($0)' : 'Min $1'}
                 disabled={loading || isFreeMode}
-                className={`w-full pl-8 pr-3 py-4 rounded-xl border border-outline-variant bg-surface focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-sm sm:text-base text-on-surface font-bold transition-all shadow-sm ${
-                  isFreeMode ? 'bg-surface-container text-emerald-800 font-semibold' : ''
+                className={`w-full pl-8 pr-3 py-3.5 rounded-xl border border-gray-200 bg-white focus:ring-1 focus:ring-[#FF4B4B] focus:border-[#FF4B4B] outline-none text-sm sm:text-base text-gray-900 font-bold transition-all shadow-xs ${
+                  isFreeMode ? 'bg-emerald-50 text-emerald-800 font-semibold border-emerald-200' : ''
                 }`}
               />
             </div>
@@ -299,10 +299,10 @@ export function HeroBidding({
             <button
               type="submit"
               disabled={loading}
-              className={`px-8 py-4 rounded-xl font-bold text-base transition-all shadow-sm whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer ${
+              className={`px-8 py-3.5 rounded-xl font-bold text-base transition-all shadow-xs whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer ${
                 isFreeMode
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-primary hover:bg-primary/95 text-white'
+                  : 'bg-[#FF4B4B] hover:bg-[#E03E3E] text-white'
               } disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]`}
             >
               {loading ? (
@@ -312,7 +312,7 @@ export function HeroBidding({
                 </>
               ) : selectedBid ? (
                 <>
-                  <Zap className="w-4 h-4 text-amber-300" />
+                  <Zap className="w-4 h-4 text-amber-200" />
                   <span>Boost Listing</span>
                 </>
               ) : isFreeMode ? (
@@ -322,7 +322,7 @@ export function HeroBidding({
                 </>
               ) : (
                 <>
-                  <span>Place Bid & Claim Rank</span>
+                  <span>Place Bid</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

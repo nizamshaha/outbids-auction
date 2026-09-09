@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { HeroBidding } from '@/components/HeroBidding';
 import { Leaderboard } from '@/components/Leaderboard';
 import { CategorySidebar } from '@/components/CategorySidebar';
+import { CategoryNavRail } from '@/components/CategoryNavRail';
 import { RulesGrid } from '@/components/RulesGrid';
 import { Footer } from '@/components/Footer';
 import { CheckCircle2, XCircle } from 'lucide-react';
@@ -13,9 +14,12 @@ import confetti from 'canvas-confetti';
 import { Bid } from '@/types/bid';
 
 function MainContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isConnected, setIsConnected] = useState(false);
   const [selectedBidAmount, setSelectedBidAmount] = useState<number | null>(null);
+  const [selectedBidForTopUp, setSelectedBidForTopUp] = useState<Bid | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [optimisticBid, setOptimisticBid] = useState<Bid | null>(null);
@@ -31,6 +35,32 @@ function MainContent() {
     type: 'success' | 'failed' | 'canceled';
     message: string;
   } | null>(null);
+
+  // Sync category with URL search param
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    } else {
+      setSelectedCategory('All');
+    }
+  }, [searchParams]);
+
+  const handleCategoryChange = useCallback(
+    (category: string) => {
+      setSelectedCategory(category);
+      const params = new URLSearchParams(searchParams.toString());
+      if (category.toLowerCase() === 'all') {
+        params.delete('category');
+      } else {
+        params.set('category', category);
+      }
+      const qs = params.toString();
+      const newUrl = qs ? `${pathname}?${qs}` : pathname;
+      router.push(newUrl, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   // Stable handlers to prevent component re-render loops
   const handleStatsUpdate = useCallback(
@@ -63,6 +93,14 @@ function MainContent() {
 
   const handleSelectBidAmount = useCallback((amountDollars: number) => {
     setSelectedBidAmount(amountDollars);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleSelectBidForTopUp = useCallback((bid: Bid) => {
+    setSelectedBidForTopUp(bid);
+    const currentDollars = Math.ceil(bid.amount / 100);
+    const nextDollars = currentDollars + 1;
+    setSelectedBidAmount(nextDollars);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -179,6 +217,8 @@ function MainContent() {
         totalVolumeCents={stats.totalVolume}
         selectedAmountDollars={selectedBidAmount}
         selectedCategory={selectedCategory}
+        selectedBid={selectedBidForTopUp}
+        onClearSelectedBid={() => setSelectedBidForTopUp(null)}
       />
 
       {/* 3. Main Content: 2-Column Grid (Category Sidebar + Leaderboard Stream) */}
@@ -187,7 +227,7 @@ function MainContent() {
           {/* Left Category Sidebar */}
           <CategorySidebar
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+            onSelectCategory={handleCategoryChange}
             categoryPools={categoryPools}
             categoryCounts={categoryCounts}
             totalPoolDollars={totalPoolDollars}
@@ -196,6 +236,13 @@ function MainContent() {
 
           {/* Right Main Leaderboard Feed */}
           <div className="flex-1 min-w-0 w-full">
+            {/* Horizontal Category Nav Rail */}
+            <CategoryNavRail
+              selectedCategory={selectedCategory}
+              onSelectCategory={handleCategoryChange}
+              categoryCounts={categoryCounts}
+            />
+
             <Leaderboard
               selectedCategory={selectedCategory}
               refreshTrigger={refreshTrigger}
@@ -203,6 +250,7 @@ function MainContent() {
               onStatsUpdate={handleStatsUpdate}
               onConnectionChange={handleConnectionChange}
               onSelectBidAmount={handleSelectBidAmount}
+              onSelectBidForTopUp={handleSelectBidForTopUp}
               onCategoryMetricsCalculated={handleCategoryMetrics}
             />
           </div>

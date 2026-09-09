@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false } = body;
+    const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false, listingId } = body;
     const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
 
     // 2. Rate Limiting Protection
@@ -120,20 +120,35 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // 4. Query existing listing for top-up delta calculation
-    const { data: existingBid, error: queryError } = await supabase
-      .from('bids')
-      .select('id, amount, status')
-      .eq('url', normalizedUrl)
-      .limit(1)
-      .maybeSingle();
+    // 4. Query existing listing for cumulative top-up calculation
+    let existingBid: { id: string; amount: number; status: string; url?: string } | null = null;
 
-    if (queryError) {
-      console.error('[Checkout Database Error]:', queryError);
-      return NextResponse.json<CheckoutResponse>(
-        { error: 'Database service unavailable. Please try again.' },
-        { status: 500 }
-      );
+    if (listingId && typeof listingId === 'string' && listingId.trim()) {
+      const { data: byId } = await supabase
+        .from('bids')
+        .select('id, amount, status, url')
+        .eq('id', listingId.trim())
+        .limit(1)
+        .maybeSingle();
+      if (byId) existingBid = byId;
+    }
+
+    if (!existingBid) {
+      const { data: byUrl, error: queryError } = await supabase
+        .from('bids')
+        .select('id, amount, status, url')
+        .eq('url', normalizedUrl)
+        .limit(1)
+        .maybeSingle();
+
+      if (queryError) {
+        console.error('[Checkout Database Error]:', queryError);
+        return NextResponse.json<CheckoutResponse>(
+          { error: 'Database service unavailable. Please try again.' },
+          { status: 500 }
+        );
+      }
+      if (byUrl) existingBid = byUrl;
     }
 
     const existingAmountCents = existingBid ? existingBid.amount : 0;
@@ -222,26 +237,21 @@ export async function POST(req: NextRequest) {
     }
 
     const targetAmountCents = Math.round(rawNumAmount * 100);
+    let targetTotalCents = targetAmountCents;
     let chargeAmountCents = targetAmountCents;
     let isTopUp = false;
 
     if (existingBid) {
-      if (targetAmountCents <= existingAmountCents) {
-        return NextResponse.json<CheckoutResponse>(
-          {
-            error: `Your website is already listed at $${(existingAmountCents / 100).toFixed(
-              2
-            )}. Enter an amount higher than $${(existingAmountCents / 100).toFixed(
-              2
-            )} to outbid and climb the leaderboard!`,
-          },
-          { status: 400 }
-        );
-      }
-
-      // Charge only the delta difference
-      chargeAmountCents = targetAmountCents - existingAmountCents;
       isTopUp = true;
+      if (targetAmountCents > existingAmountCents) {
+        // User specified a new target milestone total -> charge incremental delta
+        chargeAmountCents = targetAmountCents - existingAmountCents;
+        targetTotalCents = targetAmountCents;
+      } else {
+        // User added a direct boost payment -> accumulate payment on top of existing total
+        chargeAmountCents = targetAmountCents;
+        targetTotalCents = existingAmountCents + chargeAmountCents;
+      }
     }
 
     // -------------------------------------------------------------
@@ -281,9 +291,9 @@ export async function POST(req: NextRequest) {
       ],
       return_url: `${siteUrl}/`,
       metadata: {
-        url: normalizedUrl,
+        url: existingBid?.url || normalizedUrl,
         category: sanitizedCategory,
-        bid_amount: targetAmountCents.toString(),
+        bid_amount: targetTotalCents.toString(),
         is_topup: isTopUp ? 'true' : 'false',
         existing_bid_id: existingBid?.id || '',
         title: finalTitle || '',
@@ -292,7 +302,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    console.log(`[Dodo Payments] Initiating secure checkout for ${normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100})`);
+    console.log(`[Dodo Payments] Initiating secure checkout for ${existingBid?.url || normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100}, target total: $${targetTotalCents / 100})`);
 
     const dodoRes = await fetch(`${dodoBaseUrl}/payments`, {
       method: 'POST',
@@ -318,7 +328,7 @@ export async function POST(req: NextRequest) {
       provider: 'dodopayments',
       isTopUp,
       amountChargedDollars: chargeAmountCents / 100,
-      totalBidDollars: targetAmountCents / 100,
+      totalBidDollars: targetTotalCents / 100,
     });
   } catch (error: any) {
     console.error('[Checkout Route Security Error]:', error);

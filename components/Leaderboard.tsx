@@ -596,8 +596,8 @@ export function Leaderboard({
         </div>
       )}
 
-      {/* Sahara Feed Items */}
-      <div className="space-y-4 my-4">
+      {/* Edge-to-Edge Clean Minimalist Feed Items */}
+      <div className="border-t border-gray-200 my-4 bg-white rounded-xl overflow-hidden shadow-2xs">
         {paginatedItems.map((bid, index) => {
           const rank = index + 1;
           const showTop10Divider = rank === 11;
@@ -605,11 +605,11 @@ export function Leaderboard({
           return (
             <React.Fragment key={bid.id}>
               {showTop10Divider && (
-                <div className="relative py-4 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-dashed border-outline-variant" />
+                <div className="relative py-2.5 px-4 flex items-center justify-center bg-neutral-50/80 border-b border-gray-200">
+                  <div className="absolute inset-0 flex items-center px-4">
+                    <div className="w-full border-t border-dashed border-neutral-300" />
                   </div>
-                  <span className="relative px-3 bg-background text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                  <span className="relative px-3 bg-neutral-50/80 text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest">
                     ─── TOP 10 SPOTLIGHT CUTOFF ───
                   </span>
                 </div>

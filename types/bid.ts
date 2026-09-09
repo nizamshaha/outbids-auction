@@ -58,6 +58,7 @@ export interface CreateCheckoutPayload {
   description?: string;
   isFreeTier?: boolean;
   email?: string;
+  listingId?: string;
 }
 
 export interface CheckoutResponse {

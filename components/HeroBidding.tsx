@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { sanitizeAndNormalizeUrl, getFaviconUrl, formatCentsToDollars } from '@/utils/formatters';
-import { BidCategory, PLATFORM_CATEGORIES } from '@/types/bid';
-import { ArrowRight, Loader2, AlertCircle, Sparkles, CheckCircle2, Zap, Gift, Tag, Link as LinkIcon, DollarSign, Trophy } from 'lucide-react';
+import { Bid, BidCategory, PLATFORM_CATEGORIES } from '@/types/bid';
+import { ArrowRight, Loader2, AlertCircle, Sparkles, CheckCircle2, Zap, Gift, Tag, Link as LinkIcon, DollarSign, Trophy, X } from 'lucide-react';
 
 interface HeroBiddingProps {
   highestBidCents: number;
@@ -12,6 +12,8 @@ interface HeroBiddingProps {
   isConnected: boolean;
   selectedAmountDollars?: number | null;
   selectedCategory?: string;
+  selectedBid?: Bid | null;
+  onClearSelectedBid?: () => void;
 }
 
 const MIN_BID_DOLLARS = 1;
@@ -23,6 +25,8 @@ export function HeroBidding({
   isConnected,
   selectedAmountDollars,
   selectedCategory,
+  selectedBid,
+  onClearSelectedBid,
 }: HeroBiddingProps) {
   const [url, setUrl] = useState('');
   const [amount, setAmount] = useState<string>('');
@@ -31,6 +35,20 @@ export function HeroBidding({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Sync selected bid if top-up was initiated from leaderboard
+  useEffect(() => {
+    if (selectedBid) {
+      setUrl(selectedBid.url);
+      if (
+        selectedBid.category &&
+        (PLATFORM_CATEGORIES as readonly string[]).includes(selectedBid.category)
+      ) {
+        setCategory(selectedBid.category as BidCategory);
+      }
+      setIsFreeMode(false);
+    }
+  }, [selectedBid]);
 
   // Calculate dynamic claim price for #1: Highest + $1 (or $1 if 0)
   const highestBidDollars = highestBidCents > 0 ? highestBidCents / 100 : 0;
@@ -122,6 +140,7 @@ export function HeroBidding({
           url: urlValidation.normalizedUrl,
           amountInDollars: isFreeMode ? 0 : parsedAmount,
           category,
+          listingId: selectedBid?.id,
         }),
       });
 
@@ -137,6 +156,7 @@ export function HeroBidding({
         setUrl('');
         setAmount('');
         setIsFreeMode(false);
+        onClearSelectedBid?.();
         return;
       }
 
@@ -172,6 +192,28 @@ export function HeroBidding({
         <p className="text-text-muted max-w-xl mx-auto mb-8 text-sm sm:text-base leading-relaxed">
           New spots start at $1. Paying less than the #1 price still puts you on the board at whatever place that bid can take.
         </p>
+
+        {/* Boosting Active Listing Badge */}
+        {selectedBid && (
+          <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 text-white text-xs font-semibold shadow-xs animate-in fade-in">
+            <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Boosting: <span className="underline font-bold">{selectedBid.title || previewDomain || selectedBid.url}</span> (Current Total: {formatCentsToDollars(selectedBid.amount)})
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onClearSelectedBid?.();
+                setUrl('');
+                setAmount('');
+              }}
+              className="ml-2 hover:bg-neutral-800 p-1 rounded-full transition-colors cursor-pointer"
+              title="Cancel boost"
+            >
+              <X className="w-3.5 h-3.5 text-neutral-400 hover:text-white" />
+            </button>
+          </div>
+        )}
 
         {/* Error / Success Feedback Banners */}
         {errorMessage && (
@@ -259,23 +301,29 @@ export function HeroBidding({
               disabled={loading}
               className={`px-8 py-4 rounded-xl font-bold text-base transition-all shadow-sm whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer ${
                 isFreeMode
-                  ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                  : 'bg-primary hover:bg-primary-container text-white hover:text-white'
-              }`}
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-primary hover:bg-primary/95 text-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]`}
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Processing...</span>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Connecting...</span>
+                </>
+              ) : selectedBid ? (
+                <>
+                  <Zap className="w-4 h-4 text-amber-300" />
+                  <span>Boost Listing</span>
                 </>
               ) : isFreeMode ? (
                 <>
+                  <Gift className="w-4 h-4" />
                   <span>Submit Free</span>
-                  <ArrowRight className="w-4 h-4" />
                 </>
               ) : (
                 <>
-                  <span>Outbid ⚡</span>
+                  <span>Place Bid & Claim Rank</span>
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>

@@ -70,13 +70,23 @@ export default function RootLayout({
         />
         <script
           src="https://quge5.com/88/tag.min.js"
-          data-zone="282972"
+          data-zone="283036"
           async
           data-cfasync="false"
         />
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              (function() {
+                if (!document.querySelector('script[src*="quge5.com"]')) {
+                  var s = document.createElement('script');
+                  s.src = 'https://quge5.com/88/tag.min.js';
+                  s.dataset.zone = '283036';
+                  s.async = true;
+                  s.setAttribute('data-cfasync', 'false');
+                  document.head.appendChild(s);
+                }
+              })();
               if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function() {});

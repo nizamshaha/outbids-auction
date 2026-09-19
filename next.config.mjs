@@ -11,8 +11,33 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/service-worker.js',
+        destination: '/sw.js',
+      },
+    ];
+  },
   async headers() {
     return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
@@ -48,11 +73,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://apis.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
+              "script-src 'self' 'unsafe-inline' https://apis.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://5gvci.com https://*.5gvci.com",
+              "worker-src 'self' blob: https://5gvci.com https://*.5gvci.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.dodopayments.com https://*.paypal.com https://fonts.googleapis.com https://fonts.gstatic.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.dodopayments.com https://*.paypal.com https://fonts.googleapis.com https://fonts.gstatic.com https://5gvci.com https://*.5gvci.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "object-src 'none'",

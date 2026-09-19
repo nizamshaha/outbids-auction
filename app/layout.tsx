@@ -68,6 +68,17 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Manrope:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function() {});
+                });
+              }
+            `,
+          }}
+        />
       </head>
       <body className="bg-white text-gray-900 min-h-screen antialiased selection:bg-[#FF4B4B] selection:text-white font-sans">
         <main className="relative z-10">{children}</main>

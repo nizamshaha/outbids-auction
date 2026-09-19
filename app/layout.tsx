@@ -69,6 +69,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <script
+          src="https://quge5.com/88/tag.min.js"
+          data-zone="282972"
+          async
+          data-cfasync="false"
+        />
+        <script
           dangerouslySetInnerHTML={{
             __html: `
               if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

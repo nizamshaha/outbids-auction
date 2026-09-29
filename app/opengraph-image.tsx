@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Outbids.auction - A live marketplace for digital visibility';
+export const alt = 'OutBids.auction - A Live Marketplace for Digital Visibility';
 export const size = {
   width: 1200,
   height: 630,
@@ -19,16 +19,16 @@ export default async function Image() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: '#faf5ee',
+          backgroundColor: '#FFFFFF',
           backgroundImage:
-            'radial-gradient(circle at 50% 20%, rgba(194, 101, 42, 0.12), transparent 55%), radial-gradient(circle at 85% 85%, rgba(194, 101, 42, 0.08), transparent 45%)',
-          padding: '60px 80px',
-          fontFamily: 'serif',
-          color: '#3a302a',
+            'radial-gradient(circle at 50% 10%, rgba(255, 75, 75, 0.12), transparent 50%), radial-gradient(circle at 90% 90%, rgba(255, 75, 75, 0.06), transparent 40%)',
+          padding: '50px 70px',
+          fontFamily: 'sans-serif',
+          color: '#0F172A',
           position: 'relative',
         }}
       >
-        {/* Top Header & Live Badge */}
+        {/* Top Header & Live Pulse */}
         <div
           style={{
             display: 'flex',
@@ -42,20 +42,29 @@ export default async function Image() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: '4px',
             }}
           >
-            <div
+            <span
               style={{
-                fontSize: '32px',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: '#c2652a',
-                fontFamily: 'serif',
+                fontSize: '36px',
+                fontWeight: 900,
+                letterSpacing: '-0.03em',
+                color: '#111827',
               }}
             >
-              OutBids.auction
-            </div>
+              OutBids
+            </span>
+            <span
+              style={{
+                fontSize: '36px',
+                fontWeight: 900,
+                letterSpacing: '-0.03em',
+                color: '#FF4B4B',
+              }}
+            >
+              .auction
+            </span>
           </div>
 
           {/* Live Badge */}
@@ -63,16 +72,15 @@ export default async function Image() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '8px 18px',
+              gap: '10px',
+              padding: '8px 20px',
               borderRadius: '999px',
-              backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              color: '#047857',
+              backgroundColor: '#FFF5F3',
+              border: '1.5px solid #FFE4E0',
+              color: '#FF4B4B',
               fontSize: '13px',
               fontWeight: 800,
               letterSpacing: '0.08em',
-              fontFamily: 'sans-serif',
             }}
           >
             <div
@@ -80,14 +88,14 @@ export default async function Image() {
                 width: '10px',
                 height: '10px',
                 borderRadius: '50%',
-                backgroundColor: '#10b981',
+                backgroundColor: '#10B981',
               }}
             />
-            LIVE 24/7 MARKETPLACE
+            LIVE ATTENTION MARKETPLACE
           </div>
         </div>
 
-        {/* Center Main Content */}
+        {/* Center Main Hero Content */}
         <div
           style={{
             display: 'flex',
@@ -99,40 +107,38 @@ export default async function Image() {
         >
           <div
             style={{
-              fontSize: '60px',
-              fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: '-0.02em',
-              marginBottom: '20px',
-              color: '#3a302a',
-              fontFamily: 'serif',
+              fontSize: '66px',
+              fontWeight: 900,
+              lineHeight: 1.1,
+              letterSpacing: '-0.03em',
+              marginBottom: '18px',
+              color: '#09090B',
             }}
           >
-            A live marketplace for digital visibility.
+            Claim <span style={{ color: '#FF4B4B' }}>#1</span> for Your Project
           </div>
 
           <div
             style={{
               fontSize: '24px',
-              color: '#605850',
+              color: '#64748B',
               lineHeight: 1.4,
               maxWidth: '820px',
-              fontFamily: 'sans-serif',
+              fontWeight: 500,
             }}
           >
-            New spots start at $1. Outbid the competition to broadcast your website link live in real-time.
+            New spots start at $1. Outbid the competition to broadcast your website link live to thousands of visitors.
           </div>
         </div>
 
-        {/* Bottom Feature Badges */}
+        {/* Bottom Feature Pill Badges */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '20px',
+            gap: '16px',
             width: '100%',
-            fontFamily: 'sans-serif',
           }}
         >
           <div
@@ -140,16 +146,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '12px',
-              backgroundColor: '#f2ece4',
-              border: '1px solid #d8d0c8',
-              fontSize: '14px',
-              fontWeight: 700,
-              color: '#3a302a',
+              padding: '12px 22px',
+              borderRadius: '14px',
+              backgroundColor: '#FFF5F3',
+              border: '1.5px solid #FFE4E0',
+              fontSize: '15px',
+              fontWeight: 800,
+              color: '#FF4B4B',
             }}
           >
-            ⚡ Live Supabase WebSockets
+            👑 #1 Live Spotlight
           </div>
 
           <div
@@ -157,16 +163,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '12px',
-              backgroundColor: '#fbe8d8',
-              border: '1px solid rgba(194, 101, 42, 0.3)',
-              fontSize: '14px',
+              padding: '12px 22px',
+              borderRadius: '14px',
+              backgroundColor: '#F8FAFC',
+              border: '1.5px solid #E2E8F0',
+              fontSize: '15px',
               fontWeight: 700,
-              color: '#c2652a',
+              color: '#334155',
             }}
           >
-            🏆 Top 3 Showcase
+            ⚡ Real-Time WebSockets
           </div>
 
           <div
@@ -174,16 +180,16 @@ export default async function Image() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              fontSize: '14px',
+              padding: '12px 22px',
+              borderRadius: '14px',
+              backgroundColor: '#F0FDF4',
+              border: '1.5px solid #DCFCE7',
+              fontSize: '15px',
               fontWeight: 700,
-              color: '#047857',
+              color: '#15803D',
             }}
           >
-            🛡️ Dodo Payments Verified
+            🔒 Dodo Payments Verified
           </div>
         </div>
       </div>

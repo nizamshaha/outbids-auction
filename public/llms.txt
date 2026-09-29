@@ -1,0 +1,27 @@
+# OutBids.auction
+
+> OutBids.auction is a real-time, transparent digital visibility marketplace where creators, startups, developers, and brands bid for top broadcast ranking spots on a live attention billboard.
+
+## Core Features
+- **Real-Time Auction Leaderboard**: Live ranking powered by Supabase WebSockets. Rank #1 gets the hero spotlight.
+- **Micro-Budget Friendly**: New slots start at only $1.00 USD.
+- **Instant Live Update**: Verified payments immediately push the listing to the top of the leaderboard in real time without page refreshes.
+- **Multi-Placement Gamification**: Sponsors and creators claiming multiple slots receive exclusive platform badges (`👑 Multi-Placement`).
+- **Transparent Analytics**: Live visitor presence ticker and real-time bid statistics.
+- **Fair Bidding Dynamics**: Clear rules, verified payments via Dodo Payments, and non-misleading link policies.
+
+## Key URLs
+- **Homepage / Live Billboard**: https://www.outbids.auction/
+- **Auction Rules & Anti-Fraud Guidelines**: https://www.outbids.auction/rules
+- **Terms of Service**: https://www.outbids.auction/terms
+- **Privacy Policy**: https://www.outbids.auction/privacy
+- **Refund Policy**: https://www.outbids.auction/refunds
+- **Contact & Support**: https://www.outbids.auction/contact
+- **Sitemap**: https://www.outbids.auction/sitemap.xml
+- **RSS Live Feed**: https://www.outbids.auction/feed.xml
+
+## Use Cases
+- **Startup & Indie Hacker Launches**: Gaining instant eyeballs on day 1 for as low as $1.
+- **SaaS Promotion**: Capturing tech enthusiast, investor, and early adopter attention.
+- **Domain & Product Brokering**: Showcasing digital assets to active buyers.
+- **Content Creators & Newsletters**: Driving targeted, real-time subscriber acquisition.

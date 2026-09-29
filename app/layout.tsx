@@ -59,16 +59,39 @@ export const metadata: Metadata = {
 
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: 'Outbids.auction',
-  url: 'https://www.outbids.auction',
-  description:
-    'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: 'https://www.outbids.auction/?q={search_term_string}',
-    'query-input': 'required name=search_term_string',
-  },
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': 'https://www.outbids.auction/#website',
+      name: 'OutBids.auction',
+      url: 'https://www.outbids.auction',
+      description:
+        'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: 'https://www.outbids.auction/?q={search_term_string}',
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@type': 'Organization',
+      '@id': 'https://www.outbids.auction/#organization',
+      name: 'OutBids.auction',
+      url: 'https://www.outbids.auction',
+      logo: 'https://www.outbids.auction/icon.png',
+    },
+    {
+      '@type': 'Product',
+      name: 'Digital Visibility Sponsorship Spot',
+      description: 'Live ranked advertising slot on the OutBids.auction billboard leaderboard.',
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'USD',
+        lowPrice: '1.00',
+        offerCount: '50',
+      },
+    },
+  ],
 };
 
 export default function RootLayout({
@@ -84,6 +107,12 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Manrope:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
+        />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="OutBids.auction Live Feed"
+          href="/feed.xml"
         />
         {/* Google tag (gtag.js) */}
         <script

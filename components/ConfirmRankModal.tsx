@@ -84,13 +84,24 @@ export function ConfirmRankModal({
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize payment session.');
+      let data: any = null;
+      const responseText = await response.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = null;
       }
 
-      const checkoutUrl = data.checkout_url || data.url;
+      if (!response.ok) {
+        const errorMsg =
+          data?.error ||
+          data?.message ||
+          responseText ||
+          `Payment session creation failed (${response.status})`;
+        throw new Error(errorMsg);
+      }
+
+      const checkoutUrl = data?.checkout_url || data?.url;
 
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
@@ -99,7 +110,12 @@ export function ConfirmRankModal({
       }
     } catch (err: unknown) {
       console.error('[ConfirmRankModal Error]:', err);
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+          ? err
+          : 'An unexpected error occurred while creating your checkout session.';
       setApiError(message);
       setLoading(false);
     }

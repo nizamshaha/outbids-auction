@@ -303,7 +303,7 @@ export async function POST(req: NextRequest) {
         {
           product_id: productId,
           quantity: 1,
-          amount: chargeAmountCents,
+          amount: Math.round(chargeAmountCents),
         },
       ],
       return_url: returnUrl,
@@ -322,7 +322,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Dodo Payments] Initiating checkout for ${existingBid?.url || normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100}, target rank: #${targetRank})`);
 
-    // Attempt /checkouts hosted checkout endpoint first, fallback to /payments
+    // Call /checkouts hosted checkout endpoint
     let dodoRes = await fetch(`${dodoBaseUrl}/checkouts`, {
       method: 'POST',
       headers: {
@@ -343,27 +343,50 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const dodoData = await dodoRes.json();
-    const checkoutUrl = dodoData.checkout_url || dodoData.payment_link || dodoData.url;
+    const responseText = await dodoRes.text();
+    let dodoData: any = null;
+    try {
+      dodoData = JSON.parse(responseText);
+    } catch {
+      dodoData = null;
+    }
 
-    if (!dodoRes.ok || !checkoutUrl) {
-      console.error('[Dodo Payments API Error]:', dodoData);
-      throw new Error(dodoData.message || dodoData.error || 'Failed to generate payment session.');
+    if (!dodoRes.ok) {
+      console.error("Dodo API Error:", responseText);
+      const detailedMessage =
+        dodoData?.message ||
+        dodoData?.error ||
+        responseText ||
+        `Dodo Payments error (${dodoRes.status})`;
+      return NextResponse.json<CheckoutResponse>(
+        { error: detailedMessage },
+        { status: dodoRes.status >= 400 && dodoRes.status < 600 ? dodoRes.status : 500 }
+      );
+    }
+
+    const checkoutUrl = dodoData?.checkout_url || dodoData?.payment_link || dodoData?.url;
+    if (!checkoutUrl) {
+      console.error("Dodo API Error (No Checkout URL):", responseText);
+      return NextResponse.json<CheckoutResponse>(
+        { error: dodoData?.message || "No checkout URL returned by Dodo Payments" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       checkout_url: checkoutUrl,
       url: checkoutUrl,
-      orderId: dodoData.payment_id || dodoData.checkout_id || dodoData.id,
+      orderId: dodoData.payment_id || dodoData.session_id || dodoData.checkout_id || dodoData.id,
       provider: 'dodopayments',
       isTopUp,
       amountChargedDollars: chargeAmountCents / 100,
       totalBidDollars: targetTotalCents / 100,
     });
   } catch (error: any) {
-    console.error('[Checkout Route Security Error]:', error);
+    console.error('[Checkout Route Error]:', error);
+    const message = error?.message || 'An unexpected error occurred while creating your checkout session. Please try again.';
     return NextResponse.json<CheckoutResponse>(
-      { error: 'An unexpected error occurred while creating your checkout session. Please try again.' },
+      { error: message },
       { status: 500 }
     );
   }

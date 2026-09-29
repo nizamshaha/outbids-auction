@@ -41,8 +41,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { url, amountInDollars, category = 'Other', title, description, isFreeTier = false, listingId } = body;
-    const isFreeSubmission = isFreeTier || Number(amountInDollars) === 0;
+    const {
+      url,
+      amountInDollars,
+      bidAmount,
+      targetRank = 1,
+      category = 'Other',
+      title,
+      description,
+      isFreeTier = false,
+      listingId,
+    } = body as CreateCheckoutPayload & { bidAmount?: number; targetRank?: number };
+
+    const effectiveAmountDollars =
+      bidAmount !== undefined && bidAmount !== null
+        ? Number(bidAmount)
+        : Number(amountInDollars);
+
+    const isFreeSubmission = isFreeTier || effectiveAmountDollars === 0;
 
     // 2. Rate Limiting Protection
     const rateLimitConfig = isFreeSubmission ? RATE_LIMITS.CHECKOUT_FREE : RATE_LIMITS.CHECKOUT_PAID;
@@ -220,7 +236,7 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     // B. PAID BIDDING & TOP-UP DIFFERENCE CALCULATION
     // -------------------------------------------------------------
-    const rawNumAmount = Number(amountInDollars);
+    const rawNumAmount = effectiveAmountDollars;
 
     if (isNaN(rawNumAmount) || !isFinite(rawNumAmount) || rawNumAmount < MIN_BID_AMOUNT_DOLLARS) {
       return NextResponse.json<CheckoutResponse>(
@@ -257,13 +273,14 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------
     // C. DODO PAYMENTS API INTEGRATION
     // -------------------------------------------------------------
-    const apiKey = process.env.DODO_SECRET_KEY || process.env.DODO_PAYMENTS_API_KEY;
-    const productId = process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_0Nm9Jk0QoBKXJmjXqt2u2';
+    const apiKey = process.env.DODO_PAYMENTS_API_KEY || process.env.DODO_SECRET_KEY;
+    const productId = process.env.DODO_PRODUCT_ID || process.env.DODO_PAYMENTS_PRODUCT_ID || 'pdt_0Nm9Jk0QoBKXJmjXqt2u2';
     const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.outbids.auction';
     const siteUrl = rawSiteUrl.replace('https://outbids.auction', 'https://www.outbids.auction');
+    const returnUrl = `${siteUrl}/?payment=success`;
 
     if (!apiKey) {
-      console.error('[Dodo Payments Security] DODO_SECRET_KEY or DODO_PAYMENTS_API_KEY is not configured.');
+      console.error('[Dodo Payments Security] DODO_PAYMENTS_API_KEY or DODO_SECRET_KEY is not configured.');
       return NextResponse.json<CheckoutResponse>(
         { error: 'Payment gateway configuration missing. Please contact support.' },
         { status: 500 }
@@ -289,10 +306,11 @@ export async function POST(req: NextRequest) {
           amount: chargeAmountCents,
         },
       ],
-      return_url: `${siteUrl}/`,
+      return_url: returnUrl,
       metadata: {
         url: existingBid?.url || normalizedUrl,
         category: sanitizedCategory,
+        target_rank: targetRank.toString(),
         bid_amount: targetTotalCents.toString(),
         is_topup: isTopUp ? 'true' : 'false',
         existing_bid_id: existingBid?.id || '',
@@ -302,9 +320,10 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    console.log(`[Dodo Payments] Initiating secure checkout for ${existingBid?.url || normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100}, target total: $${targetTotalCents / 100})`);
+    console.log(`[Dodo Payments] Initiating checkout for ${existingBid?.url || normalizedUrl} (${isTopUp ? 'Top-Up' : 'New'}, charge: $${chargeAmountCents / 100}, target rank: #${targetRank})`);
 
-    const dodoRes = await fetch(`${dodoBaseUrl}/payments`, {
+    // Attempt /checkouts hosted checkout endpoint first, fallback to /payments
+    let dodoRes = await fetch(`${dodoBaseUrl}/checkouts`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -313,18 +332,29 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(dodoPayload),
     });
 
-    const dodoData = await dodoRes.json();
+    if (dodoRes.status === 404) {
+      dodoRes = await fetch(`${dodoBaseUrl}/payments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dodoPayload),
+      });
+    }
 
-    if (!dodoRes.ok || (!dodoData.payment_link && !dodoData.url)) {
+    const dodoData = await dodoRes.json();
+    const checkoutUrl = dodoData.checkout_url || dodoData.payment_link || dodoData.url;
+
+    if (!dodoRes.ok || !checkoutUrl) {
       console.error('[Dodo Payments API Error]:', dodoData);
       throw new Error(dodoData.message || dodoData.error || 'Failed to generate payment session.');
     }
 
-    const checkoutUrl = dodoData.payment_link || dodoData.url;
-
-    return NextResponse.json<CheckoutResponse>({
+    return NextResponse.json({
+      checkout_url: checkoutUrl,
       url: checkoutUrl,
-      orderId: dodoData.payment_id,
+      orderId: dodoData.payment_id || dodoData.checkout_id || dodoData.id,
       provider: 'dodopayments',
       isTopUp,
       amountChargedDollars: chargeAmountCents / 100,

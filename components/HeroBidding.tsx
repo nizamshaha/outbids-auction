@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { sanitizeAndNormalizeUrl, getFaviconUrl, formatCentsToDollars } from '@/utils/formatters';
 import { Bid, BidCategory, PLATFORM_CATEGORIES } from '@/types/bid';
 import { ArrowRight, Loader2, AlertCircle, Sparkles, CheckCircle2, Zap, Gift, Tag, Link as LinkIcon, DollarSign, Trophy, X } from 'lucide-react';
+import { ConfirmRankModal } from './ConfirmRankModal';
 
 interface HeroBiddingProps {
   highestBidCents: number;
@@ -30,9 +31,10 @@ export function HeroBidding({
 }: HeroBiddingProps) {
   const [url, setUrl] = useState('');
   const [amount, setAmount] = useState<string>('');
-  const [category, setCategory] = useState<BidCategory>('SEO & AI Visibility');
+  const [category, setCategory] = useState<BidCategory>('Developer Tools');
   const [isFreeMode, setIsFreeMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -100,8 +102,14 @@ export function HeroBidding({
       setIsFreeMode(false);
       setAmount(MIN_BID_DOLLARS.toString());
     }
-    setErrorMessage(null);
-  };
+  const parsedAmount = parseFloat(amount);
+  const effectiveAmount = isFreeMode
+    ? 0
+    : !isNaN(parsedAmount) && parsedAmount >= MIN_BID_DOLLARS
+    ? parsedAmount
+    : claimTopDollars;
+
+  const isFormValid = url.trim().length > 0 && urlValidation.isValid && Boolean(category);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,59 +127,51 @@ export function HeroBidding({
       return;
     }
 
-    const parsedAmount = parseFloat(amount);
-
-    if (!isFreeMode) {
-      if (isNaN(parsedAmount) || parsedAmount < MIN_BID_DOLLARS) {
-        setErrorMessage(`Minimum paid bid is $${MIN_BID_DOLLARS}.00 USD.`);
-        return;
-      }
+    if (!category) {
+      setErrorMessage('Please select a category.');
+      return;
     }
 
-    setLoading(true);
+    // If Free mode, submit directly
+    if (isFreeMode) {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: urlValidation.normalizedUrl,
+            amountInDollars: 0,
+            category,
+            listingId: selectedBid?.id,
+          }),
+        });
 
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: urlValidation.normalizedUrl,
-          amountInDollars: isFreeMode ? 0 : parsedAmount,
-          category,
-          listingId: selectedBid?.id,
-        }),
-      });
+        const data = await response.json();
 
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to submit free listing.');
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize bidding checkout.');
-      }
-
-      // If Free tier submission completed immediately
-      if (data.provider === 'free') {
         setSuccessMessage(data.message || '🎉 Your listing is now live on Outbids.auction!');
         setUrl('');
         setAmount('');
         setIsFreeMode(false);
         onClearSelectedBid?.();
-        return;
+      } catch (err: unknown) {
+        console.error('[HeroBidding Error]:', err);
+        const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+        setErrorMessage(message);
+      } finally {
+        setLoading(false);
       }
-
-      // If payment redirect URL returned (Dodo Payments)
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL received from payment provider.');
-      }
-    } catch (err: any) {
-      console.error('[HeroBidding Error]:', err);
-      setErrorMessage(err.message || 'An unexpected error occurred. Please try again.');
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    // For paid bids: open the "Confirm this rank" modal
+    setIsConfirmModalOpen(true);
   };
 
   return (
@@ -295,10 +295,10 @@ export function HeroBidding({
               />
             </div>
 
-            {/* Outbid CTA Button */}
+            {/* Outbid Dynamic CTA Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={!isFormValid || loading}
               className={`px-8 py-3.5 rounded-xl font-bold text-base transition-all shadow-xs whitespace-nowrap flex items-center justify-center gap-2 cursor-pointer ${
                 isFreeMode
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -310,19 +310,19 @@ export function HeroBidding({
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span>Connecting...</span>
                 </>
-              ) : selectedBid ? (
-                <>
-                  <Zap className="w-4 h-4 text-amber-200" />
-                  <span>Boost Listing</span>
-                </>
               ) : isFreeMode ? (
                 <>
                   <Gift className="w-4 h-4" />
                   <span>Submit Free</span>
                 </>
+              ) : selectedBid ? (
+                <>
+                  <Zap className="w-4 h-4 text-amber-200" />
+                  <span>Claim rank</span>
+                </>
               ) : (
                 <>
-                  <span>Place Bid</span>
+                  <span>Claim rank</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -431,6 +431,21 @@ export function HeroBidding({
             </span>
           </span>
         </div>
+
+        {/* Confirm Rank Modal */}
+        <ConfirmRankModal
+          isOpen={isConfirmModalOpen}
+          onClose={() => setIsConfirmModalOpen(false)}
+          url={url}
+          normalizedUrl={urlValidation.normalizedUrl}
+          displayDomain={urlValidation.displayDomain || url}
+          faviconUrl={previewFavicon}
+          category={category}
+          bidAmount={effectiveAmount}
+          targetRank={1}
+          listingId={selectedBid?.id}
+          isTopUp={!!selectedBid}
+        />
       </div>
     </section>
   );

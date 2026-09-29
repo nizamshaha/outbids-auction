@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { Webhook } from 'standardwebhooks';
-import { isSafePublicUrl } from '@/utils/metadata';
+import { isSafePublicUrl, scrapeUrlMetadata } from '@/utils/metadata';
 import { sanitizeString } from '@/utils/securityUtils';
 
 export const dynamic = 'force-dynamic';
@@ -138,6 +139,22 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Server-side destination metadata enrichment via standard HTML parser
+      let finalTitle = title;
+      let finalDescription = description;
+      let finalIconUrl = iconUrl;
+
+      if (!finalTitle || !finalDescription || !finalIconUrl) {
+        try {
+          const scraped = await scrapeUrlMetadata(rawUrl);
+          if (!finalTitle && scraped.title) finalTitle = sanitizeString(scraped.title, 100);
+          if (!finalDescription && scraped.description) finalDescription = sanitizeString(scraped.description, 300);
+          if (!finalIconUrl && scraped.iconUrl && isSafePublicUrl(scraped.iconUrl)) finalIconUrl = scraped.iconUrl;
+        } catch (scrapeErr) {
+          console.warn('[Dodo Webhook] Server-side metadata fetch warning:', scrapeErr);
+        }
+      }
+
       if (targetBidId || isTopUp) {
         console.log(`[Dodo Webhook] Upgrading listing ${targetBidId || rawUrl} to $${bidAmountCents / 100}...`);
 
@@ -148,9 +165,9 @@ export async function POST(req: NextRequest) {
             status: 'paid',
             stripe_payment_intent_id: paymentId || null,
             category,
-            ...(title ? { title } : {}),
-            ...(description ? { description } : {}),
-            ...(iconUrl ? { icon_url: iconUrl } : {}),
+            ...(finalTitle ? { title: finalTitle } : {}),
+            ...(finalDescription ? { description: finalDescription } : {}),
+            ...(finalIconUrl ? { icon_url: finalIconUrl } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('id', targetBidId)
@@ -182,9 +199,9 @@ export async function POST(req: NextRequest) {
             status: 'paid',
             stripe_payment_intent_id: paymentId || null,
             category,
-            title,
-            description,
-            icon_url: iconUrl,
+            title: finalTitle,
+            description: finalDescription,
+            icon_url: finalIconUrl,
             click_count: 0,
             view_count: 0,
           });
@@ -198,8 +215,8 @@ export async function POST(req: NextRequest) {
               amount: bidAmountCents,
               status: 'paid',
               stripe_payment_intent_id: paymentId || null,
-              title,
-              description,
+              title: finalTitle,
+              description: finalDescription,
             });
 
           if (fallback.error) {
@@ -209,6 +226,13 @@ export async function POST(req: NextRequest) {
         }
 
         console.log(`[Dodo Webhook] Successfully inserted verified listing for ${rawUrl}!`);
+      }
+
+      // Trigger Next.js on-demand cache revalidation
+      try {
+        revalidatePath('/');
+      } catch (revalErr) {
+        console.warn('[Dodo Webhook] Cache revalidation warning:', revalErr);
       }
     }
 

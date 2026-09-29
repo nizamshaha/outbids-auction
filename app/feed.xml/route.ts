@@ -29,7 +29,7 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
     const { data: bids, error } = await supabase
       .from('bids')
-      .select('id, title, url, tagline, description, amount, category, created_at')
+      .select('id, title, url, description, amount, category, created_at')
       .eq('status', 'paid')
       .order('amount', { ascending: false })
       .order('created_at', { ascending: true })
@@ -42,7 +42,7 @@ export async function GET() {
         const title = escapeXml(`[#${rank}] ${bid.title || 'Featured Project'} ($${amountDollars})`);
         const link = `${baseUrl}/go/${bid.id}`;
         const description = escapeXml(
-          `${bid.tagline || bid.description || 'Promoted on OutBids.auction live leaderboard.'} - Category: ${
+          `${bid.description || 'Promoted on OutBids.auction live leaderboard.'} - Category: ${
             bid.category || 'General'
           } - Outbid value: $${amountDollars}`
         );

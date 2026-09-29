@@ -102,6 +102,9 @@ export function HeroBidding({
       setIsFreeMode(false);
       setAmount(MIN_BID_DOLLARS.toString());
     }
+    setErrorMessage(null);
+  };
+
   const parsedAmount = parseFloat(amount);
   const effectiveAmount = isFreeMode
     ? 0

@@ -3,10 +3,6 @@
     "motion": {
       "type": "http",
       "url": "https://mcp.motion.dev"
-    },
-    "motion-plus": {
-      "type": "http",
-      "url": "https://mcp.motion.dev/plus"
     }
   }
 }

@@ -2,7 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://outbids.auction'),
+  metadataBase: new URL('https://www.outbids.auction'),
+  alternates: {
+    canonical: '/',
+  },
   title: {
     default: 'Outbids.auction | A live marketplace for digital visibility',
     template: '%s | Outbids.auction',
@@ -28,7 +31,7 @@ export const metadata: Metadata = {
     title: 'Outbids.auction | A live marketplace for digital visibility',
     description:
       'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
-    url: 'https://outbids.auction',
+    url: 'https://www.outbids.auction',
     siteName: 'Outbids.auction',
     locale: 'en_US',
     type: 'website',
@@ -54,6 +57,20 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Outbids.auction',
+  url: 'https://www.outbids.auction',
+  description:
+    'A live marketplace for digital visibility. New spots start at $1. Outbid the competition to broadcast your website link live.',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: 'https://www.outbids.auction/?q={search_term_string}',
+    'query-input': 'required name=search_term_string',
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -69,6 +86,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
           src="https://quge5.com/88/tag.min.js"
           data-zone="283036"
           async
@@ -77,16 +98,6 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              (function() {
-                if (!document.querySelector('script[src*="quge5.com"]')) {
-                  var s = document.createElement('script');
-                  s.src = 'https://quge5.com/88/tag.min.js';
-                  s.dataset.zone = '283036';
-                  s.async = true;
-                  s.setAttribute('data-cfasync', 'false');
-                  document.head.appendChild(s);
-                }
-              })();
               if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function() {});

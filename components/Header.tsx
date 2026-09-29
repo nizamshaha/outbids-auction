@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Sparkles, Globe, ArrowUpRight, Radio } from 'lucide-react';
 import { formatCentsToDollars } from '@/utils/formatters';
@@ -18,6 +18,13 @@ export function Header({
   highestBidCents,
   totalVolumeCents,
 }: HeaderProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const showLive = !mounted || isConnected;
   return (
     <header className="border-b border-gray-100 sticky top-0 bg-white/95 backdrop-blur-sm z-50">
       <div className="max-w-7xl mx-auto px-4 h-15 flex items-center justify-between text-sm">
@@ -44,8 +51,8 @@ export function Header({
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500 font-mono">
             <span className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              <span className="font-sans font-medium text-gray-700">{isConnected ? 'LIVE' : 'Connecting...'}</span>
+              <span className={`w-2 h-2 rounded-full ${showLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span className="font-sans font-medium text-gray-700">{showLive ? 'LIVE' : 'Connecting...'}</span>
             </span>
             <span className="text-gray-200">|</span>
             <span>{totalBids} listings</span>

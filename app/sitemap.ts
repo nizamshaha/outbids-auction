@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://outbids.auction';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.outbids.auction';
   const now = new Date();
 
   return [

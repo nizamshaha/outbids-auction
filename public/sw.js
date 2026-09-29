@@ -1,6 +1,8 @@
-self.options = {
-    "domain": "3nbf4.com",
-    "zoneId": 11837265
-}
-self.lary = ""
-importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
+// Unregister any legacy Monetag service workers
+self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.registration.unregister());
+});

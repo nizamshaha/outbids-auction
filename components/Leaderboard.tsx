@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { Bid } from '@/types/bid';
+import { sanitizeAndNormalizeUrl } from '@/utils/formatters';
 import { LeaderboardCard } from './LeaderboardCard';
 import { getWatchlist } from '@/utils/watchlist';
 import confetti from 'canvas-confetti';
@@ -424,6 +425,28 @@ export function Leaderboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bids, activeTab, selectedCategory, searchQuery, watchlistVersion]);
 
+  // Identify users (by domain or email) who currently hold multiple active spots on the board
+  const multiPlacementData = useMemo(() => {
+    const domainCounts = new Map<string, number>();
+    const emailCounts = new Map<string, number>();
+
+    bids.forEach((b) => {
+      if (b.status === 'paid') {
+        const { displayDomain } = sanitizeAndNormalizeUrl(b.url);
+        if (displayDomain) {
+          const normDomain = displayDomain.toLowerCase().replace(/^www\./, '');
+          domainCounts.set(normDomain, (domainCounts.get(normDomain) || 0) + 1);
+        }
+        if (b.email) {
+          const normEmail = b.email.toLowerCase().trim();
+          emailCounts.set(normEmail, (emailCounts.get(normEmail) || 0) + 1);
+        }
+      }
+    });
+
+    return { domainCounts, emailCounts };
+  }, [bids]);
+
   const paginatedItems = filteredBids.slice(0, visibleCount);
 
   return (
@@ -629,6 +652,11 @@ export function Leaderboard({
         {paginatedItems.map((bid, index) => {
           const rank = index + 1;
           const showTop10Divider = rank === 11;
+          const { displayDomain } = sanitizeAndNormalizeUrl(bid.url);
+          const normDomain = displayDomain ? displayDomain.toLowerCase().replace(/^www\./, '') : '';
+          const hasMultiPlacement =
+            (normDomain ? (multiPlacementData.domainCounts.get(normDomain) || 0) >= 2 : false) ||
+            (bid.email ? (multiPlacementData.emailCounts.get(bid.email.toLowerCase().trim()) || 0) >= 2 : false);
 
           return (
             <React.Fragment key={bid.id}>
@@ -646,6 +674,7 @@ export function Leaderboard({
               <LeaderboardCard
                 bid={bid}
                 rank={rank}
+                hasMultiPlacement={hasMultiPlacement}
                 onTopUp={handleTopUpClick}
                 onWatchlistChanged={handleWatchlistChanged}
               />

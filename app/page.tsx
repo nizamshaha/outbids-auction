@@ -6,6 +6,8 @@ import { Header } from '@/components/Header';
 import { HeroBidding } from '@/components/HeroBidding';
 import { Leaderboard } from '@/components/Leaderboard';
 import { CategoryNavRail } from '@/components/CategoryNavRail';
+import { LiveStats } from '@/components/LiveStats';
+import { CelebrationModal } from '@/components/CelebrationModal';
 import { RulesGrid } from '@/components/RulesGrid';
 import { Footer } from '@/components/Footer';
 import { CheckCircle2, XCircle } from 'lucide-react';
@@ -29,6 +31,11 @@ function MainContent() {
     highest: 0,
     totalVolume: 0,
   });
+
+  const [celebrationData, setCelebrationData] = useState<{
+    bid: Bid;
+    rank: number;
+  } | null>(null);
 
   const [notification, setNotification] = useState<{
     type: 'success' | 'failed' | 'canceled';
@@ -152,11 +159,16 @@ function MainContent() {
                 // Automatically switch to the category so user immediately sees their listing
                 setSelectedCategory(data.listing.category);
               }
+              const calculatedRank = typeof data.rank === 'number' && data.rank > 0 ? data.rank : 1;
+              setCelebrationData({
+                bid: data.listing,
+                rank: calculatedRank,
+              });
               setNotification({
                 type: 'success',
                 message: data.listing.title
-                  ? `🎉 Payment Confirmed! "${data.listing.title}" is now live on the OutBids attention market.`
-                  : '🎉 Payment Successful! Your listing is now live on the OutBids attention market.',
+                  ? `🎉 Payment Confirmed! "${data.listing.title}" claimed Rank #${calculatedRank} on OutBids.`
+                  : `🎉 Payment Successful! You claimed Rank #${calculatedRank} on OutBids.`,
               });
             }
           })
@@ -190,6 +202,19 @@ function MainContent() {
         onSelectCategory={handleCategoryChange}
         categoryCounts={categoryCounts}
       />
+
+      {/* 3. Live Communal Vibe Ticker (Total Volume + Active Now WebSocket Presence) */}
+      <LiveStats totalVolumeCents={stats.totalVolume} />
+
+      {/* Post-Purchase Celebratory Status Game Modal */}
+      {celebrationData && (
+        <CelebrationModal
+          isOpen={!!celebrationData}
+          onClose={() => setCelebrationData(null)}
+          rank={celebrationData.rank}
+          bid={celebrationData.bid}
+        />
+      )}
 
       {/* Banner for Checkout results */}
       {notification && (

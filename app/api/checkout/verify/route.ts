@@ -60,6 +60,24 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient();
 
+  const getListingRank = async (listing: any): Promise<number> => {
+    if (!listing) return 1;
+    try {
+      const { data: allBids } = await supabase
+        .from('bids')
+        .select('id, amount, created_at')
+        .eq('status', 'paid')
+        .order('amount', { ascending: false })
+        .order('created_at', { ascending: true });
+
+      if (!allBids || allBids.length === 0) return 1;
+      const idx = allBids.findIndex((b: any) => b.id === listing.id);
+      return idx >= 0 ? idx + 1 : 1;
+    } catch {
+      return 1;
+    }
+  };
+
   // 4. Check if listing is ALREADY fulfilled in Supabase
   const { data: existingPaidBid } = await supabase
     .from('bids')
@@ -69,11 +87,13 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (existingPaidBid) {
+    const rank = await getListingRank(existingPaidBid);
     return NextResponse.json({
       success: true,
       idempotent: true,
       status: 'succeeded',
       listing: existingPaidBid,
+      rank,
     });
   }
 
@@ -181,17 +201,21 @@ export async function GET(req: NextRequest) {
           .select('*')
           .single();
 
+        const rank = await getListingRank(fallbackUpdated);
         return NextResponse.json({
           success: true,
           verified: true,
           listing: fallbackUpdated,
+          rank,
         });
       }
 
+      const rank = await getListingRank(updatedData);
       return NextResponse.json({
         success: true,
         verified: true,
         listing: updatedData,
+        rank,
       });
     } else {
       console.log(`[Payment Verification] Inserting newly verified listing for ${rawUrl} ($${bidAmountCents / 100})...`);
@@ -228,17 +252,21 @@ export async function GET(req: NextRequest) {
           .select('*')
           .single();
 
+        const rank = await getListingRank(fallback.data);
         return NextResponse.json({
           success: true,
           verified: true,
           listing: fallback.data,
+          rank,
         });
       }
 
+      const rank = await getListingRank(insertedData);
       return NextResponse.json({
         success: true,
         verified: true,
         listing: insertedData,
+        rank,
       });
     }
   } catch (verifyErr: any) {

@@ -17,6 +17,7 @@ import {
 interface LeaderboardCardProps {
   bid: Bid;
   rank: number;
+  hasMultiPlacement?: boolean;
   onTopUp?: (bid: Bid) => void;
   onWatchlistChanged?: () => void;
 }
@@ -55,7 +56,13 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
-export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: LeaderboardCardProps) {
+export function LeaderboardCard({
+  bid,
+  rank,
+  hasMultiPlacement,
+  onTopUp,
+  onWatchlistChanged,
+}: LeaderboardCardProps) {
   const { displayDomain } = sanitizeAndNormalizeUrl(bid.url);
   const isRank1 = rank === 1;
   const isPaid = bid.status === 'paid';
@@ -210,6 +217,15 @@ export function LeaderboardCard({ bid, rank, onTopUp, onWatchlistChanged }: Lead
             <span className="text-gray-400 font-mono truncate max-w-[150px] sm:max-w-none">
               {displayDomain}
             </span>
+            {hasMultiPlacement && (
+              <span
+                title="Owns 2 or more active spots on the leaderboard"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 shrink-0 shadow-2xs"
+              >
+                <span>👑</span>
+                <span>Multi-Placement</span>
+              </span>
+            )}
             <span className="text-gray-300">•</span>
             <span
               className="font-mono flex items-center gap-1 tabular-nums text-gray-500"
